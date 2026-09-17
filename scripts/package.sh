@@ -33,7 +33,31 @@ echo "== version $version ($build)"
 
 echo "== signing with: $identity"
 if [ "$identity" = "-" ]; then timestamp="--timestamp=none"; else timestamp="--timestamp"; fi
-codesign --force --deep --options runtime "$timestamp" --sign "$identity" "$app"
+# Sparkle's nested pieces are signed inside-out, the way its documentation asks, before the app
+# itself; a blanket --deep pass would also drop the Downloader XPC's own entitlements.
+sparkle="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
+codesign --force --options runtime "$timestamp" --sign "$identity" "$sparkle/XPCServices/Installer.xpc"
+codesign --force --options runtime "$timestamp" --preserve-metadata=entitlements --sign "$identity" "$sparkle/XPCServices/Downloader.xpc"
+codesign --force --options runtime "$timestamp" --sign "$identity" "$sparkle/Autoupdate"
+codesign --force --options runtime "$timestamp" --sign "$identity" "$sparkle/Updater.app"
+codesign --force --options runtime "$timestamp" --sign "$identity" "$app/Contents/Frameworks/Sparkle.framework"
+if [ "$identity" = "-" ]; then
+  # An ad-hoc signature carries no Team ID, so Hardened Runtime's library validation would refuse
+  # the embedded framework ("different Team IDs"). Local builds get the exemption; a Developer ID
+  # build does not need it because every piece above shares the team.
+  entitlements="$(mktemp -t ante-entitlements).plist"
+  cat > "$entitlements" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict></plist>
+PLIST
+  codesign --force --options runtime "$timestamp" --entitlements "$entitlements" --sign "$identity" "$app"
+  rm -f "$entitlements"
+else
+  codesign --force --options runtime "$timestamp" --sign "$identity" "$app"
+fi
 codesign --verify --deep --strict --verbose=2 "$app"
 codesign -d --entitlements - "$app" 2>/dev/null | head -n 20
 
