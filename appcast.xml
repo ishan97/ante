@@ -1,6 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>Ante</title>
-  </channel>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Ante</title>
+        <item>
+            <title>1.0.0</title>
+            <pubDate>Thu, 17 Sep 2026 22:43:10 +0200</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/ishan97/ante/releases/download/v1.0.0/Ante.dmg" length="7162397" type="application/octet-stream" sparkle:edSignature="3IoQ6MiD5yVYaTdyDEGf9ucWckzMGZeRpeBKuMJSwyd0bPE1jv9DeLB1CEcqfVHxA6n8mHLeFMV0pgQrc/7TCQ=="/>
+        </item>
+    </channel>
 </rss>

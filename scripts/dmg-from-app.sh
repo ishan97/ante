@@ -16,8 +16,10 @@ hdiutil create -quiet -volname "Ante" -srcfolder "$stage" -ov -format UDZO "$out
 echo "== $out (version $version, build $build)"
 codesign -dv "$app" 2>&1 | grep -E "^Authority=" | head -n 1 || true
 if xcrun stapler validate "$app" >/dev/null 2>&1; then
-  xcrun stapler staple "$out" >/dev/null && echo "== notarization ticket stapled to the DMG"
-  spctl --assess --type open --context context:primary-signature --verbose=2 "$out" 2>&1 | tail -n 1
+  echo "== app is notarized and stapled (Gatekeeper checks the app, so the DMG opens cleanly on other Macs)"
+  # Stapling the container itself needs a DMG signed with a local Developer ID; with Xcode's
+  # cloud-managed certificate there is none, so this is best-effort.
+  if xcrun stapler staple "$out" >/dev/null 2>&1; then echo "== notarization ticket also stapled to the DMG"; fi
 else
   echo "== app is not notarized: other Macs will still see Gatekeeper's warning"
 fi
