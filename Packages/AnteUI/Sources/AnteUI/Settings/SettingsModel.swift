@@ -110,7 +110,7 @@ public final class SettingsModel {
         set { write("cursor", "blink", .bool(newValue)) }
     }
     public var themeName: String {
-        get { config.theme.name }
+        get { pendingString("theme.name") ?? config.theme.name }
         set { write("theme", "name", .string(newValue)) }
     }
     public var accentHex: String {
@@ -165,9 +165,22 @@ public final class SettingsModel {
         get { pendingDouble("theme.opacity") ?? config.theme.opacity }
         set { write("theme", "opacity", .double((newValue * 100).rounded() / 100)) }
     }
+    /// Light / Dark / System. Ante's own themes follow the choice (`ante-dark` ⇄ `ante-light`,
+    /// or the `ante` family when the system decides), and a custom window background — which
+    /// picks light or dark by its own luminance — is cleared so the switch is visible.
     public var appearance: AnteConfig.Appearance {
-        get { config.theme.appearance }
-        set { write("theme", "appearance", .string(newValue.rawValue)) }
+        get { pendingString("theme.appearance").flatMap(AnteConfig.Appearance.init(rawValue:)) ?? config.theme.appearance }
+        set {
+            write("theme", "appearance", .string(newValue.rawValue))
+            let name = pendingString("theme.name") ?? config.theme.name
+            switch (name, newValue) {
+            case ("ante-dark", .light), ("ante", .light): write("theme", "name", .string("ante-light"))
+            case ("ante-light", .dark), ("ante", .dark): write("theme", "name", .string("ante-dark"))
+            case ("ante-dark", .system), ("ante-light", .system): write("theme", "name", .string("ante"))
+            default: break
+            }
+            if newValue != .system, hasCustomBackground { write("theme", "background", .string("")) }
+        }
     }
     public var wallpaperPath: String {
         get { pendingString("wallpaper.path") ?? config.wallpaper.path }

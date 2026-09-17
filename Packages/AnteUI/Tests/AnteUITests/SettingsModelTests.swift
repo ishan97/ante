@@ -51,3 +51,31 @@ final class SettingsModelTests: XCTestCase {
         runtime.prepareForQuit()
     }
 }
+
+extension SettingsModelTests {
+    func testAppearanceSwitchMovesAntesOwnThemeWithItAndShowsAtOnce() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ante-set-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(root: root, configRoot: root.appendingPathComponent("config"))
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+            ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: [], kind: .other)
+        })
+        let model = SettingsModel(runtime: runtime)
+        model.themeName = "ante-dark"
+        model.backgroundHex = "#101418"
+        model.appearance = .light
+        XCTAssertEqual(model.appearance, .light, "the segmented control must not snap back before the write lands")
+        XCTAssertEqual(model.themeName, "ante-light")
+        XCTAssertFalse(model.hasCustomBackground, "a custom background would keep deciding light vs dark")
+        model.flushPendingWrites()
+        let text = try String(contentsOf: paths.configFile, encoding: .utf8)
+        XCTAssertTrue(text.contains("name = \"ante-light\""), text)
+        XCTAssertTrue(text.contains("appearance = \"light\""), text)
+
+        model.appearance = .system
+        XCTAssertEqual(model.themeName, "ante", "System: the ante family follows the Mac")
+        model.themeName = "gruvbox-dark"
+        model.appearance = .light
+        XCTAssertEqual(model.themeName, "gruvbox-dark", "third-party themes are left alone")
+    }
+}
