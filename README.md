@@ -2,6 +2,8 @@
 
 # Ante
 
+**[anterm.app](https://anterm.app)** · [Download](https://github.com/ishan97/ante/releases/latest/download/Ante.dmg) · macOS 14+, Apple silicon
+
 A native macOS terminal built as a workspace: projects and sessions in a sidebar, sessions that
 land in History on quit, splits, a global show/hide hotkey, themes, and shell integration that
 never touches your rc files.
