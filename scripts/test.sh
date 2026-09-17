@@ -6,8 +6,9 @@ cd "$(dirname "$0")/.."
 # If AnteCore changed since the dependents were last built, rebuild them from scratch: a test
 # binary linked against an older AnteCore keeps the old enum layout (a stale enum layout once
 # turned a zsh into "pi"), and SwiftPM does not always notice.
-_core_stamp=$(find Packages/AnteCore/Sources -type f -newer Packages/AnteTerm/.build 2>/dev/null | head -n 1)
-if [ -n "$_core_stamp" ] || [ ! -d Packages/AnteTerm/.build ]; then
+# On a fresh checkout there is no .build yet (and `find -newer` on a missing path would fail
+# under pipefail), so test for the directory first.
+if [ ! -d Packages/AnteTerm/.build ] || [ -n "$(find Packages/AnteCore/Sources -type f -newer Packages/AnteTerm/.build 2>/dev/null | head -n 1)" ]; then
   rm -rf Packages/AnteTerm/.build Packages/AnteUI/.build Packages/AntePanel/.build
 fi
 
