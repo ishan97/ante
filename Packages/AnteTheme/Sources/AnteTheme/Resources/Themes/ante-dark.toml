@@ -1,0 +1,14 @@
+# Packages/AnteTheme/Sources/AnteTheme/Resources/Themes/ante-dark.toml
+name = "Ante Dark"
+appearance = "dark"
+
+[colors]
+foreground = "#D7DCE5"
+background = "#0B0D12"
+cursor = "#F5C56B"
+selection_background = "#253654"
+selection_foreground = "#F4F6FA"
+ansi = [
+  "#1A1D26", "#FF6B6B", "#7BD88F", "#F5C56B", "#6EA8FE", "#C79BF5", "#6CD4D4", "#C9CED8",
+  "#545A68", "#FF8A8A", "#96E6A8", "#FFD58A", "#8FBCFF", "#D8B4FB", "#8BE2E2", "#E8ECF2",
+]

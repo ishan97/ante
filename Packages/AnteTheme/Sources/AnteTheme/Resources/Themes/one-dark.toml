@@ -1,0 +1,14 @@
+# Colour values from One Dark by GitHub/Atom (https://github.com/atom/one-dark-syntax), MIT. See THIRD_PARTY_NOTICES.md.
+name = "One Dark"
+appearance = "dark"
+
+[colors]
+foreground = "#ABB2BF"
+background = "#282C34"
+cursor = "#528BFF"
+selection_background = "#3E4451"
+selection_foreground = "#ABB2BF"
+ansi = [
+  "#282C34", "#E06C75", "#98C379", "#E5C07B", "#61AFEF", "#C678DD", "#56B6C2", "#ABB2BF",
+  "#5C6370", "#E06C75", "#98C379", "#E5C07B", "#61AFEF", "#C678DD", "#56B6C2", "#FFFFFF",
+]

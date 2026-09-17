@@ -1,0 +1,7 @@
+# Ante zsh shell integration — stage 2 of 3 (.zprofile). Sources the user's .zprofile.
+_ante_user_zdotdir="${ANTE_USER_ZDOTDIR:-$HOME}"
+if [[ -f "$_ante_user_zdotdir/.zprofile" ]]; then
+  ZDOTDIR="$_ante_user_zdotdir"
+  source "$_ante_user_zdotdir/.zprofile"
+fi
+ZDOTDIR="$ANTE_ZDOTDIR_SHIM"

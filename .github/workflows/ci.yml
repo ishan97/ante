@@ -1,0 +1,18 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | tail -n 1)"
+      - name: Metal toolchain (SwiftTerm ships a shader)
+        run: xcodebuild -downloadComponent MetalToolchain || true
+      - name: Show toolchain
+        run: xcodebuild -version && swift --version
+      - name: Tests and build
+        run: ./scripts/test.sh

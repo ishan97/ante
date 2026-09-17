@@ -1,0 +1,14 @@
+# Packages/AnteTheme/Sources/AnteTheme/Resources/Themes/ante-light.toml
+name = "Ante Light"
+appearance = "light"
+
+[colors]
+foreground = "#1F2430"
+background = "#FAFAF7"
+cursor = "#B8791E"
+selection_background = "#D9E4F5"
+selection_foreground = "#101418"
+ansi = [
+  "#2B3040", "#C4322E", "#2E8B4E", "#B8791E", "#2F6FD6", "#8A4FC8", "#1E8E8E", "#E4E6EA",
+  "#6B7280", "#E04B47", "#3FAE63", "#D69A2C", "#4C8AEB", "#A66BE0", "#2AA8A8", "#FFFFFF",
+]

@@ -1,0 +1,98 @@
+<p align="center"><img src="docs/brand/ante-icon-256.png" width="128" alt="Ante"></p>
+
+# Ante
+
+A native macOS terminal built as a workspace: projects and sessions in a sidebar, sessions that
+land in History on quit, splits, a global show/hide hotkey, themes, and shell integration that
+never touches your rc files.
+
+## Build
+
+    ./scripts/bootstrap.sh     # installs xcodegen, generates Ante.xcodeproj
+    ./scripts/test.sh          # tests every package, builds the app
+    ./scripts/package.sh       # Release build → dist/Ante-<version>.dmg
+
+Requires Xcode 26 and the Metal toolchain (`xcodebuild -downloadComponent MetalToolchain`).
+`package.sh` signs ad-hoc by default; see **Distributing** below for a signed, notarized build.
+
+## Configure
+
+`~/.config/ante/config.toml`, hot-reloaded. Settings (⌘,) edits the same file and keeps your
+comments. Themes go in `~/.config/ante/themes/*.toml`; import iTerm2 `.itermcolors` or Alacritty
+`.toml` from Settings → Appearance.
+
+## Sessions
+
+`⌘⇧S` (or the pinned **Sessions** entry in the sidebar) opens a board of every live pane, sorted
+into **Working / Waiting for you / Idle**, with the agent in the foreground (Claude Code, Codex,
+Aider, Gemini, Goose, Amp, OpenCode, Cursor, Pi, or a plain shell/command) and how long it has been
+in that state. Below the board, an **Activity** strip shows a year of prompts per day, with streaks,
+read from the agents' own history files. **History** lists past sessions straight from each agent's
+storage — Claude Code (`~/.claude/projects`), Codex (`~/.codex/sessions` and `archived_sessions`),
+OpenCode (`~/.local/share/opencode/opencode.db`), Pi (`~/.pi/agent/sessions`) — plus sessions
+closed in Ante; click one to open a pane in that project and resume it (`claude --resume …`,
+`codex resume …`, `opencode --session …`, `pi --session …`).
+
+"Waiting for you" is definite when an agent hook says so and probable when an agent has been
+quiet for `[agents] quiet_seconds` (default 8). Settings → Agents can install the Claude Code
+hook (into `~/.claude/settings.json`, backed up; removable) for the definite signal.
+
+## Keys
+
+| | |
+|---|---|
+| ⌘T / ⌘W | new session / close pane |
+| ⌘D / ⌘⇧D / ⌘⌥D / ⌘⌥⇧D | split right / down / left / up |
+| ⌘⌥←↑→↓ | focus pane |
+| ⌘1–9, ⌘⇧[ ] | jump between sessions |
+| ⌘F | find in scrollback |
+| ⌘K | clear pane |
+| ⌘⇧S | sessions board |
+| ⌘⌥S | show / hide the sidebar |
+| ⌘⇧O | insert file path (or drop files onto the terminal) |
+| ⌘⇧T | to-do list & notes (the checklist button in the toolbar shows how many are open) |
+| — | focus timer (the timer button in the toolbar; 25/5 by default, long break every fourth block) |
+| ⌘⇧P | command palette |
+| ⌘↑ / ⌘↓ | previous / next command |
+| ⌘⇧A | select last command output |
+| ⌘-click | open link or file |
+| ⌥` | drop Ante over the current app; press again to hide and return to it (rebind in Settings) |
+
+Every split pane has a close button; the cursor is a steady block by default (`[cursor]` in config). Rebind these under Settings → Keys (or `[keys]` in config.toml).
+
+## Layout
+
+`Packages/AnteCore` (model, state, config), `AnteTerm` (SwiftTerm + OSC 133/7 tee), `AnteTheme`,
+`AnteUI` (SwiftUI shell), `AntePanel` (global hotkey). Design notes and reviews live under `docs/`.
+
+## Brand
+
+The icon is the neural chevron: a prompt `>` built from glowing nodes and links — a terminal
+with an AI inside it. It is drawn by `scripts/render-icon.swift` at every size
+(`swift scripts/render-icon.swift 1024 out.png`; `docs/brand/ante-icon-256.png` is a render).
+
+## Versioning
+
+The marketing version lives in `project.yml` (`CFBundleShortVersionString`). `scripts/package.sh`
+stamps each DMG with a build number equal to the commit count, so two builds of the same version
+are still distinguishable in the About box and in crash logs.
+
+## Distributing
+
+`scripts/package.sh` builds `dist/Ante-<version>.dmg`. Ad-hoc signed by default, which is fine on
+your own Mac; anyone else gets Gatekeeper's "Apple could not verify" warning. To ship:
+
+1. In the Apple Developer portal (Account Holder or Admin), create a **Developer ID Application**
+   certificate — Xcode › Settings › Accounts › Manage Certificates › + › Developer ID Application.
+2. Store notarization credentials once:
+   `xcrun notarytool store-credentials ante --apple-id you@example.com --team-id TEAMID --password <app-specific password>`
+   (app-specific password from appleid.apple.com › Sign-In and Security).
+3. `ANTE_SIGN_IDENTITY=auto scripts/package.sh` — signs with the Developer ID, notarizes, staples,
+   and prints Gatekeeper's verdict. The resulting DMG opens cleanly on any Mac.
+   `ANTE_NOTARIZE=0` skips the notary submission (the signature still fetches a timestamp from
+   Apple) — enough for your own Macs, not for others.
+
+## License
+
+MIT — see `LICENSE`. Bundled fonts, colour schemes, and Swift packages keep their own licences,
+listed in `THIRD_PARTY_NOTICES.md`. Contributions are welcome; see `CONTRIBUTING.md`.

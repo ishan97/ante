@@ -1,0 +1,53 @@
+// Packages/AnteUI/Tests/AnteUITests/SettingsModelTests.swift
+import XCTest
+import AnteCore
+import AnteTerm
+@testable import AnteUI
+
+@MainActor
+final class SettingsModelTests: XCTestCase {
+    func testSettersWriteConfigAndImportCreatesATheme() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ante-set-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(root: root, configRoot: root.appendingPathComponent("config"))
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+            ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: [], kind: .other)
+        })
+        let model = SettingsModel(runtime: runtime)
+        model.fontSize = 17
+        model.confirmMultilinePaste = false
+        model.themeName = "one-dark"
+        model.accentHex = "6ea8ff"
+        XCTAssertEqual(model.accentHex, "#6EA8FF")
+        model.backgroundHex = "#101418"
+        model.windowOpacity = 0.876
+        XCTAssertEqual(model.backgroundHex, "#101418")
+        XCTAssertTrue(model.hasCustomBackground)
+        XCTAssertEqual(model.fontSize, 17, "the new value shows before the coalesced write lands")
+        model.flushPendingWrites()
+        let text = try String(contentsOf: paths.configFile, encoding: .utf8)
+        XCTAssertTrue(text.contains("[font]\nsize = 17"))
+        XCTAssertTrue(text.contains("confirm_multiline_paste = false"))
+        XCTAssertTrue(text.contains("name = \"one-dark\""))
+        XCTAssertTrue(text.contains("accent = \"#6EA8FF\""), text)
+        XCTAssertTrue(text.contains("background = \"#101418\""), text)
+        XCTAssertTrue(text.contains("opacity = 0.88"), text)
+        model.backgroundHex = nil
+        XCTAssertFalse(model.hasCustomBackground, "clearing shows immediately")
+        model.flushPendingWrites()
+        XCTAssertNil(try ConfigLoader().load(from: paths.configFile).config.theme.background)
+        XCTAssertNil(model.lastError)
+
+        let itermFile = root.appendingPathComponent("My Colors.itermcolors")
+        var dict: [String: Any] = [:]
+        for (key, v) in [("Foreground Color", 1.0), ("Background Color", 0.0)] + (0..<16).map { ("Ansi \($0) Color", 0.5) } {
+            dict[key] = ["Red Component": v, "Green Component": v, "Blue Component": v]
+        }
+        try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0).write(to: itermFile)
+        let slug = try model.importTheme(from: itermFile)
+        XCTAssertEqual(slug, "my-colors")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: paths.themesDirectory.appendingPathComponent("my-colors.toml").path))
+        XCTAssertTrue(model.themeNames.contains("my-colors"))
+        runtime.prepareForQuit()
+    }
+}

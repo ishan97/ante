@@ -1,0 +1,9 @@
+
+The default interactive shell is now zsh.
+To update your account to use zsh, please run `chsh -s /bin/zsh`.
+For more details, please visit https://support.apple.com/kb/HT208050.
+]7;file://localhost/private/tmp/tmpwlqtdv1j/home]133;A[?1034h$ ]133;Btrue
+]133;C]133;D;0]7;file://localhost/private/tmp/tmpwlqtdv1j/home]133;A$ ]133;Bfalse
+]133;C]133;D;1]7;file://localhost/private/tmp/tmpwlqtdv1j/home]133;A$ ]133;Bcd /tmp
+]133;C]133;D;0]7;file://localhost/tmp]133;A$ ]133;Bexit
+]133;Cexit

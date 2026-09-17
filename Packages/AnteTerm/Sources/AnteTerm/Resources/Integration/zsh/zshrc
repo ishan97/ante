@@ -1,0 +1,20 @@
+# Ante zsh shell integration — stage 3 of 3 (.zshrc). Sources the user's .zshrc, restores their
+# ZDOTDIR for good (so .zlogin and child shells use the real config), then loads the hooks.
+_ante_user_zdotdir="${ANTE_USER_ZDOTDIR:-$HOME}"
+# macOS's /etc/zshrc runs before this file and sets HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history —
+# while ZDOTDIR still points at the shim. Move it back to the user's directory so history is
+# never written into Ante's install dir. A user .zshrc that sets HISTFILE itself still wins.
+if [[ -n "$HISTFILE" && "$HISTFILE" == "$ANTE_ZDOTDIR_SHIM/"* ]]; then
+  HISTFILE="$_ante_user_zdotdir/${HISTFILE##*/}"
+fi
+if [[ -f "$_ante_user_zdotdir/.zshrc" ]]; then
+  ZDOTDIR="$_ante_user_zdotdir"
+  source "$_ante_user_zdotdir/.zshrc"
+fi
+if [[ -n "$ANTE_USER_ZDOTDIR" ]]; then
+  ZDOTDIR="$ANTE_USER_ZDOTDIR"
+else
+  unset ZDOTDIR
+fi
+source "$ANTE_ZDOTDIR_SHIM/ante-integration.zsh"
+unset ANTE_ZDOTDIR_SHIM _ante_user_zdotdir

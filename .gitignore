@@ -1,0 +1,27 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+.swiftpm/
+# SPM
+.build/
+Packages/*/.build/
+# macOS
+.DS_Store
+# Ante local
+*.dmg
+*.ipa
+Ante.xcodeproj/
+.gstack/
+dist/
+.claude/
+.env
+*.log
+# signing material
+*.p12
+*.cer
+*.provisionprofile
+*.mobileprovision
