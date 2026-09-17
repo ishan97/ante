@@ -37,6 +37,8 @@ public final class WorkspaceRuntime {
     /// The focus timer under the toolbar's timer button.
     public var isPomodoroVisible = false
     public let pomodoro = PomodoroModel()
+    /// Installed by the app at launch (Sparkle); nil in tests, previews, and unsigned builds.
+    public var updater: (any UpdateChecking)?
     /// The Sessions view's model. Created after `self` exists; never nil after init.
     public private(set) var board: SessionBoardModel!
     let historyStore: AnteSessionHistoryStore

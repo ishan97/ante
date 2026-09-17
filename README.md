@@ -21,6 +21,14 @@ Requires Xcode 26 and the Metal toolchain (`xcodebuild -downloadComponent MetalT
 comments. Themes go in `~/.config/ante/themes/*.toml`; import iTerm2 `.itermcolors` or Alacritty
 `.toml` from Settings → Appearance.
 
+## Updates
+
+Ante checks `https://raw.githubusercontent.com/ishan97/ante/main/appcast.xml` once a day and
+offers new versions through Sparkle's standard dialog; nothing else is sent, and the check can be
+turned off in Settings → General → Updates (Ante → Check for Updates… still works). Downloads are
+verified against the EdDSA key in the app before they are installed. The newest DMG is always at
+`https://github.com/ishan97/ante/releases/latest/download/Ante.dmg`.
+
 ## Sessions
 
 `⌘⇧S` (or the pinned **Sessions** entry in the sidebar) opens a board of every live pane, sorted
@@ -88,7 +96,9 @@ your own Mac; anyone else gets Gatekeeper's "Apple could not verify" warning. To
    `xcrun notarytool store-credentials ante --apple-id you@example.com --team-id TEAMID --password <app-specific password>`
    (app-specific password from appleid.apple.com › Sign-In and Security).
 3. `ANTE_SIGN_IDENTITY=auto scripts/package.sh` — signs with the Developer ID, notarizes, staples,
-   and prints Gatekeeper's verdict. The resulting DMG opens cleanly on any Mac.
+   signs the DMG for Sparkle (the private key from `generate_keys` in your login keychain), and
+   updates `appcast.xml`. Then attach `dist/Ante.dmg` to a GitHub Release tagged `v<version>` and
+   push `appcast.xml` on the public branch; running copies pick it up within a day.
    `ANTE_NOTARIZE=0` skips the notary submission (the signature still fetches a timestamp from
    Apple) — enough for your own Macs, not for others.
 

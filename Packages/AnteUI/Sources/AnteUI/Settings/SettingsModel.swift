@@ -22,6 +22,17 @@ public final class SettingsModel {
         self.editor = ConfigEditor(paths: runtime.paths)
     }
 
+    // MARK: - Updates
+
+    /// The app's updater, if the app installed one (nil in tests and unsigned builds).
+    public var updater: (any UpdateChecking)? { runtime.updater }
+
+    /// Sparkle's "check automatically" preference, surfaced as a plain Bool for the toggle.
+    public var automaticUpdates: Bool {
+        get { runtime.updater?.automaticallyChecks ?? false }
+        set { runtime.updater?.automaticallyChecks = newValue }
+    }
+
     private var config: AnteConfig { runtime.config }
 
     /// Records the value for instant display and writes it ~80 ms after the last change, so a

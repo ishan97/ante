@@ -10,6 +10,7 @@ below. Each item keeps its own licence; none of it is relicensed by Ante.
 | [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) 1.20.0 | MIT | the terminal emulator and PTY |
 | [TOMLKit](https://github.com/LebJe/TOMLKit) 0.6.0 | MIT | reading `config.toml` and theme files |
 | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) 3.0.1 | MIT | the global show/hide hotkey |
+| [Sparkle](https://github.com/sparkle-project/Sparkle) 2.10.0 | MIT | checking for and installing updates |
 
 `swift-argument-parser` (Apache-2.0) appears in `Package.resolved` because SwiftTerm's `termcast`
 example tool depends on it; Ante links only the SwiftTerm library, so nothing Apache-licensed

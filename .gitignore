@@ -25,3 +25,5 @@ dist/
 *.cer
 *.provisionprofile
 *.mobileprovision
+# internal specs and plans never reach the public branch
+docs/superpowers/

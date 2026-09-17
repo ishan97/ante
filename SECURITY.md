@@ -12,7 +12,9 @@ What Ante does, so you know what is in scope:
 - It writes only under `~/Library/Application Support/Ante` and `~/.config/ante`, and, only
   when you opt in from Settings → Agents, adds three hooks to `~/.claude/settings.json`
   (backed up first, removable from the same place).
-- It never opens a network connection.
+- Its only network traffic is the daily update check (an HTTPS fetch of `appcast.xml` from this
+  repository) and, after you click Install, the release download from GitHub. Both can be turned
+  off in Settings → General → Updates.
 - Everything it shows from a terminal, an agent's session file, or a hook is treated as
   untrusted: control characters are stripped, lengths are capped, and nothing from those
   sources is executed. `docs/security-review.md` lists the checks.

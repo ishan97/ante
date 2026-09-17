@@ -43,7 +43,7 @@ rm -rf build/dmg/*
 cp -R "$app" build/dmg/
 ln -s /Applications build/dmg/Applications
 dmg="dist/Ante-$version.dmg"
-rm -f "$dmg"
+rm -f dist/*.dmg
 hdiutil create -quiet -volname "Ante" -srcfolder build/dmg -ov -format UDZO "$dmg"
 echo "== $dmg ($(du -h "$dmg" | cut -f1))"
 if [ "$identity" = "-" ]; then
@@ -63,3 +63,17 @@ else
   echo "note: signed with a Developer ID but not notarized (no notarytool profile '$notary_profile')."
   echo "      once: xcrun notarytool store-credentials $notary_profile --apple-id <id> --team-id <team> --password <app-specific password>"
 fi
+
+echo "== appcast"
+# Every release ships the DMG under the same asset name, so the "latest" link never changes:
+# https://github.com/ishan97/ante/releases/latest/download/Ante.dmg
+cp -f "$dmg" dist/Ante.dmg
+sparkle_bin="$(scripts/sparkle-tools.sh)"
+"$sparkle_bin/generate_appcast" \
+  --download-url-prefix "https://github.com/ishan97/ante/releases/download/v$version/" \
+  -o appcast.xml dist/
+echo "appcast.xml updated for $version ($build)."
+echo
+echo "next:"
+echo "  gh release create v$version dist/Ante.dmg --title \"Ante $version\" --notes \"...\""
+echo "  git checkout public && git checkout main -- . && git commit -am \"Ante $version\" && git push origin public:main && git checkout main"

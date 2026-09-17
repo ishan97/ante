@@ -57,6 +57,17 @@ public struct SettingsView: View {
                 .pickerStyle(.segmented)
                 Toggle("Blink", isOn: $model.cursorBlink)
             }
+            if let updater = model.updater {
+                Section("Updates") {
+                    Toggle("Check for updates automatically", isOn: $model.automaticUpdates)
+                    HStack(alignment: .top) {
+                        Text("Checks raw.githubusercontent.com once a day for a new version; nothing else is sent.")
+                            .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+                        Spacer()
+                        Button("Check Now") { updater.checkNow() }.disabled(!updater.canCheck)
+                    }
+                }
+            }
             Section("Show or hide Ante from any app") {
                 KeyboardShortcuts.Recorder("Hotkey:", name: .showHideAnte)
                 Picker("Animation", selection: $model.hotkeyAnimation) {

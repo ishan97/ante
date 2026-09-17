@@ -5,6 +5,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var runtime: AppRuntime?
     private(set) var window: MainWindowController?
+    private var updater: Updater?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -13,6 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window = controller
         controller.show()
         runtime.installHotkey(window: controller.panel)
+        // Sparkle reads SUFeedURL / SUPublicEDKey from Info.plist; a Debug build from Xcode has
+        // both, so the updater works in development against the live feed.
+        let updater = Updater()
+        runtime.workspace.updater = updater
+        self.updater = updater
         NSApp.activate(ignoringOtherApps: true)
     }
 

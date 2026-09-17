@@ -21,6 +21,19 @@ struct AnteApp: App {
         .commands {
             SessionCommands(runtime: runtime.workspace, toggleWindow: { runtime.hotkey?.toggle() })
             EditCommands(runtime: runtime.workspace)
+            AppCommands(runtime: runtime.workspace)
+        }
+    }
+}
+
+/// "Check for Updates…" under About, the way every Sparkle app does it.
+struct AppCommands: Commands {
+    let runtime: WorkspaceRuntime
+
+    var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") { runtime.updater?.checkNow() }
+                .disabled(!(runtime.updater?.canCheck ?? false))
         }
     }
 }

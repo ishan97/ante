@@ -23,6 +23,11 @@ for pkg in AnteTerm AnteTheme AnteUI AntePanel; do
   swift test --package-path Packages/$pkg 2>&1 | { grep -E "error:|failed|Executed .* tests" || true; } | tail -n 3
 done
 
+if [ -x build/sparkle-tools/bin/generate_appcast ]; then
+  echo "== appcast"
+  scripts/test-appcast.sh
+fi
+
 ./scripts/bootstrap.sh > /dev/null
 
 echo "== App build"
