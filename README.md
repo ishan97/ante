@@ -88,19 +88,24 @@ are still distinguishable in the About box and in crash logs.
 ## Distributing
 
 `scripts/package.sh` builds `dist/Ante-<version>.dmg`. Ad-hoc signed by default, which is fine on
-your own Mac; anyone else gets Gatekeeper's "Apple could not verify" warning. To ship:
+your own Mac; anyone else gets Gatekeeper's "Apple could not verify" warning. A real release is
+signed and notarized through Xcode and then fed to Sparkle:
 
-1. In the Apple Developer portal (Account Holder or Admin), create a **Developer ID Application**
-   certificate — Xcode › Settings › Accounts › Manage Certificates › + › Developer ID Application.
-2. Store notarization credentials once:
-   `xcrun notarytool store-credentials ante --apple-id you@example.com --team-id TEAMID --password <app-specific password>`
-   (app-specific password from appleid.apple.com › Sign-In and Security).
-3. `ANTE_SIGN_IDENTITY=auto scripts/package.sh` — signs with the Developer ID, notarizes, staples,
-   signs the DMG for Sparkle (the private key from `generate_keys` in your login keychain), and
-   updates `appcast.xml`. Then attach `dist/Ante.dmg` to a GitHub Release tagged `v<version>` and
-   push `appcast.xml` on the public branch; running copies pick it up within a day.
-   `ANTE_NOTARIZE=0` skips the notary submission (the signature still fetches a timestamp from
-   Apple) — enough for your own Macs, not for others.
+1. `scripts/prepare-release.sh <version>` — stamps the version and build number, commits, publishes
+   the tree and tags it `v<version>`.
+2. In Xcode: Product → Archive → Distribute App → Direct Distribution → Upload. When Apple's
+   notarization finishes, Export the app.
+3. `scripts/dmg-from-app.sh <exported Ante.app>` — wraps it in a DMG, staples the ticket, signs the
+   DMG for Sparkle (the private key from `generate_keys` in your login keychain) and updates
+   `appcast.xml`.
+4. `gh release create v<version> dist/Ante.dmg --title "Ante <version>"`, then commit
+   `appcast.xml` and `scripts/publish.sh "release: <version> appcast"`. Running copies see the
+   update within a day.
+
+With a Developer ID certificate in the local keychain and a notarytool profile
+(`xcrun notarytool store-credentials ante …`), `ANTE_SIGN_IDENTITY=auto scripts/package.sh` does
+steps 2 and 3 in one go; `ANTE_NOTARIZE=0` skips the notary submission (the signature still
+fetches a timestamp from Apple) — enough for your own Macs, not for others.
 
 ## License
 
