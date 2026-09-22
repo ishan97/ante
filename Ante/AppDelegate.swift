@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     var runtime: AppRuntime?
     private(set) var window: MainWindowController?
     private var updater: Updater?
+    private var keyObserver: NSObjectProtocol?
+    private var closeObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -24,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let updater = Updater()
         runtime.workspace.updater = updater
         self.updater = updater
+        keepSecondaryWindowsAboveTheWorkspace()
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -36,6 +39,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// Any activation with nothing showing (Dock, ⌘-Tab, AppleScript) brings the window back.
     func applicationDidBecomeActive(_ notification: Notification) {
         if let window, !window.panel.isVisible { window.show() }
+    }
+
+    // MARK: Window ordering
+
+    /// The workspace panel sits at a raised level while the hotkey has it summoned, so a window
+    /// opened at the normal level — Settings, an alert — would land behind it. Any other Ante
+    /// window that becomes key is lifted to the panel's level and ordered in front; it goes back
+    /// to the normal level when it closes so it never floats over other apps on its own.
+    private func keepSecondaryWindowsAboveTheWorkspace() {
+        // Delivered on the main queue, so the main-actor state is safe to touch directly.
+        keyObserver = NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] note in
+            let other = note.object as? NSWindow
+            MainActor.assumeIsolated {
+                guard let self, let other, let panel = self.window?.panel, other !== panel,
+                      other.level.rawValue < panel.level.rawValue else { return }
+                other.level = panel.level
+                other.orderFrontRegardless()
+            }
+        }
+        closeObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { [weak self] note in
+            let other = note.object as? NSWindow
+            MainActor.assumeIsolated {
+                guard let self, let other, other !== self.window?.panel else { return }
+                other.level = .normal
+            }
+        }
     }
 
     // MARK: Notifications
