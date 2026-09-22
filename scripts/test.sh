@@ -14,8 +14,8 @@ fi
 
 echo "== AnteCore"
 run_tests() {   # prints the interesting lines, exits with swift test's own status
-  local out status
-  out="$(swift test --package-path "Packages/$1" 2>&1)"; status=$?
+  local out status=0
+  out="$(swift test --package-path "Packages/$1" 2>&1)" || status=$?   # `|| ` keeps set -e from exiting here
   printf '%s\n' "$out" | { grep -E "error:|failed|Executed .* tests" || true; } | tail -n 3
   return $status
 }

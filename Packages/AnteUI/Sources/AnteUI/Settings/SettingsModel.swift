@@ -343,7 +343,7 @@ public final class SettingsModel {
                   let name = first[0] as? String, let font = NSFont(name: name, size: 12) else { return false }
             return font.isFixedPitch
         }
-        let result = Array(Set(families + [config.font.family, "JetBrains Mono"])).sorted()
+        let result = Array(Set(families + [config.font.family, "Monaco", "JetBrains Mono"])).sorted()
         cachedMonospaceFamilies = result
         return result
     }

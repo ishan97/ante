@@ -61,7 +61,7 @@ hook (into `~/.claude/settings.json`, backed up; removable) for the definite sig
 | ⌘F | find in scrollback |
 | ⌘K | clear pane |
 | ⌘↩ | full screen (menu bar and Dock hide), press again to go back |
-| ⌘= / ⌘- / ⌘0 | bigger / smaller / actual text size |
+| ⌘= / ⌘- / ⌘0 | bigger / smaller / actual text size (Monaco 12 by default, like iTerm2) |
 | ⌘⇧S | sessions board |
 | ⌘⌥S | show / hide the sidebar |
 | ⌘⇧O | insert file path (or drop files onto the terminal) |

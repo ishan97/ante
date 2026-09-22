@@ -3,7 +3,7 @@ import AppKit
 
 /// Turns a configured family name into an `NSFont`, falling back through good monospace choices.
 public enum FontResolver {
-    public static let fallbackChain = ["JetBrains Mono", "FiraCode Nerd Font Mono", "SF Mono", "Menlo"]
+    public static let fallbackChain = ["Monaco", "JetBrains Mono", "FiraCode Nerd Font Mono", "SF Mono", "Menlo"]
 
     @MainActor
     public static func resolve(family: String, size: Double) -> NSFont {

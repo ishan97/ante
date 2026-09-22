@@ -31,8 +31,8 @@ final class FontTests: XCTestCase {
         }
     }
 
-    func testFallbackChainStartsWithJetBrainsMono() {
-        XCTAssertEqual(FontResolver.fallbackChain.first, "JetBrains Mono")
+    func testFallbackChainStartsWithTheDefaultThenTheBundledFont() {
+        XCTAssertEqual(Array(FontResolver.fallbackChain.prefix(2)), ["Monaco", "JetBrains Mono"])
         XCTAssertTrue(FontResolver.fallbackChain.contains("Menlo"))
     }
 }

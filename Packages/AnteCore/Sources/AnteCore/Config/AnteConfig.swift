@@ -8,8 +8,10 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
     }
 
     public struct Font: Equatable, Sendable, Decodable {
-        public var family: String = "JetBrains Mono"
-        public var size: Double = 13
+        /// iTerm2's defaults, so a fresh Ante reads like the terminal most people come from.
+        /// JetBrains Mono ships in the bundle for anyone who prefers it.
+        public var family: String = "Monaco"
+        public var size: Double = 12
         public var ligatures: Bool = true
 
         public init() {}

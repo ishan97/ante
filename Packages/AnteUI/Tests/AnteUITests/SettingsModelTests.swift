@@ -90,11 +90,11 @@ extension SettingsModelTests {
         })
         let model = SettingsModel(runtime: runtime)
         model.stepFontSize(by: 1); model.stepFontSize(by: 1)
-        XCTAssertEqual(model.fontSize, 15)
+        XCTAssertEqual(model.fontSize, 14, "two steps up from the default 12")
         model.stepFontSize(by: -30)
         XCTAssertEqual(model.fontSize, 8, "clamped at the slider's floor")
         model.resetFontSize()
-        XCTAssertEqual(model.fontSize, 13)
+        XCTAssertEqual(model.fontSize, 12, "iTerm2's default size")
 
         XCTAssertTrue(model.windowSizeIsFixed)
         model.windowSizeIsFixed = false

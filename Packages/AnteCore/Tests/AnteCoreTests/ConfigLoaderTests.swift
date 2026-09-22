@@ -9,8 +9,8 @@ final class ConfigLoaderTests: XCTestCase {
 
     func testDefaultsMatchSpec() {
         let d = AnteConfig.default
-        XCTAssertEqual(d.font.family, "JetBrains Mono")
-        XCTAssertEqual(d.font.size, 13)
+        XCTAssertEqual(d.font.family, "Monaco")
+        XCTAssertEqual(d.font.size, 12)
         XCTAssertTrue(d.font.ligatures)
         XCTAssertEqual(d.theme.name, "ante-dark")
         XCTAssertEqual(d.theme.appearance, .system)
@@ -43,7 +43,7 @@ final class ConfigLoaderTests: XCTestCase {
         """
         let config = try ConfigLoader().parse(toml)
         XCTAssertEqual(config.font.size, 15)
-        XCTAssertEqual(config.font.family, "JetBrains Mono")
+        XCTAssertEqual(config.font.family, "Monaco", "family not set: the default stays")
         XCTAssertEqual(config.theme.appearance, .dark)
         XCTAssertEqual(config.theme.name, "ante-dark")
         XCTAssertEqual(config.theme.accent, "#6EA8FF", "accent is normalised to #RRGGBB")
