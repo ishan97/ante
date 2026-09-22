@@ -156,8 +156,8 @@ public final class PomodoroModel {
 
     private static var askedForNotifications = false
 
-    static func systemNotify(_ finished: Phase) {
-        NSSound(named: "Glass")?.play()
+    static func systemNotify(_ finished: Phase, sound: String = "Glass") {
+        SystemSounds.play(named: sound)
         let content = UNMutableNotificationContent()
         content.title = finished == .focus ? "Focus block done" : "Break over"
         content.body = finished == .focus ? "Nice. Take a break." : "Back to it."

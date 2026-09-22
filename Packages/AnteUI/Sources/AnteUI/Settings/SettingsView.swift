@@ -245,7 +245,7 @@ public struct SettingsView: View {
                     ForEach(model.notifySoundChoices, id: \.self) { Text($0).tag($0) }
                 }
                 .disabled(!model.notifyWaiting)
-                Text("A macOS notification with the session's name and why it stopped; click it to jump there. Nothing is sent for the pane you are already looking at. The Dock icon counts waiting sessions.")
+                Text("A macOS notification with the session's name and why it stopped; click it to jump there. Nothing is sent for the pane you are already looking at. The Dock icon counts waiting sessions. The focus timer uses the same sound.")
                     .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
             }
             Section("History") {

@@ -65,6 +65,10 @@ public final class WorkspaceRuntime {
         FontRegistrar.registerBundledFonts()
         self.appearance = Self.makeAppearance(config: config, loader: themeLoader)
         self.board = SessionBoardModel(runtime: self)
+        // The timer's chime is the same sound the user picked for "waiting for you".
+        pomodoro.notify = { [weak self] phase in
+            PomodoroModel.systemNotify(phase, sound: self?.config.agents.notifySound ?? "Glass")
+        }
         ensureDefaults()
     }
 
