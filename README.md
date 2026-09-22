@@ -21,7 +21,7 @@ Requires Xcode 26 and the Metal toolchain (`xcodebuild -downloadComponent MetalT
 
 `~/.config/ante/config.toml`, hot-reloaded. Settings (⌘,) edits the same file and keeps your
 comments. `[window] width` and `height` (fractions of the screen, default 0.8) set the size Ante
-opens at; 0 makes it reopen at the size you left it. Themes go in `~/.config/ante/themes/*.toml`; import iTerm2 `.itermcolors` or Alacritty
+opens at, from the top-left of the screen; 0 makes it reopen at the size and place you left it. Themes go in `~/.config/ante/themes/*.toml`; import iTerm2 `.itermcolors` or Alacritty
 `.toml` from Settings → Appearance.
 
 ## Updates

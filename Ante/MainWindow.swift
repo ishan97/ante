@@ -132,13 +132,13 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         panel.makeKeyAndOrderFront(nil)
     }
 
-    /// `[window] width/height` as fractions of the screen; 0 leaves the remembered frame alone.
-    /// Full screen (⌘↩) is left alone too: the new size is picked up when it is toggled off.
+    /// `[window] width/height` as fractions of the screen, anchored to the top-left of the usable
+    /// area on the screen the window is on; 0 leaves the remembered frame alone. Full screen (⌘↩)
+    /// is left alone too: the new size is picked up when it is toggled off.
     func apply(windowConfig: AnteConfig.Window, animate: Bool) {
         guard windowConfig.isFixed, !MainPanel.isFullScreen(panel),
               let visible = Self.screen(showing: panel.frame)?.visibleFrame else { return }
-        let frame = WindowSizing.frame(fraction: windowConfig.width, windowConfig.height, in: visible,
-                                       previous: panel.frame, minSize: panel.minSize)
+        let frame = WindowSizing.frame(fraction: windowConfig.width, windowConfig.height, in: visible, minSize: panel.minSize)
         if frame != panel.frame { panel.setFrame(frame, display: true, animate: animate) }
     }
 

@@ -81,7 +81,7 @@ public struct SettingsView: View {
                         Slider(value: $model.windowHeight, in: 0.3...1, step: 0.05)
                         Text(String(format: "%.0f%%", model.windowHeight * 100)).monospacedDigit().frame(width: 44, alignment: .trailing)
                     }
-                    Text("Of the screen, each time Ante opens. Off: the window reopens at the size you left it.")
+                    Text("Of the screen, from its top-left corner, each time Ante opens. Off: the window reopens where you left it.")
                         .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
                 }
             }
