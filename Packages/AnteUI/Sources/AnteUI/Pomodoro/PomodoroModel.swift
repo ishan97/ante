@@ -45,7 +45,7 @@ public final class PomodoroModel {
     private var lastTick: Date?
     private var completedOn: Date?
     /// Plays sounds and posts notifications; tests swap it for a recorder.
-    var notify: @MainActor (Phase) -> Void = PomodoroModel.systemNotify
+    var notify: @MainActor (Phase) -> Void = { PomodoroModel.systemNotify($0) }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

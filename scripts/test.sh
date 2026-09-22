@@ -13,14 +13,20 @@ if [ ! -d Packages/AnteTerm/.build ] || [ -n "$(find Packages/AnteCore/Sources -
 fi
 
 echo "== AnteCore"
-swift test --package-path Packages/AnteCore 2>&1 | { grep -E "error:|failed|Executed .* tests" || true; } | tail -n 3
+run_tests() {   # prints the interesting lines, exits with swift test's own status
+  local out status
+  out="$(swift test --package-path "Packages/$1" 2>&1)"; status=$?
+  printf '%s\n' "$out" | { grep -E "error:|failed|Executed .* tests" || true; } | tail -n 3
+  return $status
+}
+run_tests AnteCore
 
 for pkg in AnteTerm AnteTheme AnteUI AntePanel; do
   echo "== $pkg"
   # A plain build first re-plans dependency sources; `swift test` alone can miss files newly
   # added to a path dependency and fail with "cannot find X in scope".
   swift build --package-path Packages/$pkg --build-tests > /dev/null 2>&1 || true
-  swift test --package-path Packages/$pkg 2>&1 | { grep -E "error:|failed|Executed .* tests" || true; } | tail -n 3
+  run_tests "$pkg"
 done
 
 if [ -x build/sparkle-tools/bin/generate_appcast ]; then
