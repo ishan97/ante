@@ -23,9 +23,6 @@ public final class HotkeyWindowToggler {
     public weak var window: NSWindow?
     public var hideOnFocusLoss: Bool
     public var reveal: Reveal
-    /// Called before the window slides away, so the app can leave any state (⌘↩ full screen)
-    /// that should not survive being hidden.
-    public var onWillHide: (() -> Void)?
     /// Overlay size as fractions of the screen's visible area; docked top, centred.
     public var overlayWidth: Double = 0.9 { didSet { if overlayWidth != oldValue { summonedFrame = nil } } }
     public var overlayHeight: Double = 0.6 { didSet { if overlayHeight != oldValue { summonedFrame = nil } } }
@@ -103,11 +100,22 @@ public final class HotkeyWindowToggler {
         }
     }
 
+    /// A window in macOS full screen lives on its own Space; the hotkey then hides and unhides
+    /// the app (macOS switches Spaces for us) and never touches the frame or level.
+    private var isNativeFullScreen: Bool { window?.styleMask.contains(.fullScreen) ?? false }
+
     public func show() {
         guard let window else { return }
         isSummoned = true
         if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != ProcessInfo.processInfo.processIdentifier {
             previousApp = front
+        }
+        if isNativeFullScreen {
+            Self.logger.notice("hotkey: show (full screen)")
+            NSApplication.shared.unhide(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            return
         }
         // If Ante was hidden (⌘H) its windows stay ordered out until it unhides — without activating.
         NSApplication.shared.unhideWithoutActivation()
@@ -154,8 +162,12 @@ public final class HotkeyWindowToggler {
 
     public func hide() {
         guard let window else { return }
-        onWillHide?()
         isSummoned = false
+        if isNativeFullScreen {
+            Self.logger.notice("hotkey: hide (full screen)")
+            NSApplication.shared.hide(nil)   // back to the Space and app you came from
+            return
+        }
         Self.logger.notice("hotkey: hide")
         if window.isVisible { summonedFrame = window.frame }
         guard window.isVisible, reveal != .none, !isAnimating else {

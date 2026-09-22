@@ -98,7 +98,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        window?.exitFullScreenIfNeeded()   // so the autosaved frame is the real one, not the screen
         runtime?.prepareForQuit()
         return .terminateNow
     }

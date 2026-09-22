@@ -53,25 +53,12 @@ final class MainPanel: NSPanel {
     }
 
     private static var zoomRestoreFrames: [ObjectIdentifier: NSRect] = [:]
-    private static var fullScreen = FullScreenBookkeeping()
+    /// ⌘↩: macOS's own full screen (the window gets its own Space), the way iTerm2's default
+    /// works; the next press goes back. While full screen the hotkey hides and unhides the app
+    /// instead of moving the window (see HotkeyWindowToggler).
+    static func toggleFullScreen(_ window: NSWindow) { window.toggleFullScreen(nil) }
 
-    /// ⌘↩, the way iTerm2's non-native full screen works: the window covers the whole screen and
-    /// the menu bar and Dock slide away while Ante is in front; the next press puts the previous
-    /// frame back. Not macOS full screen, which would move the panel to its own Space and break
-    /// the hotkey overlay.
-    static func toggleFullScreen(_ window: NSWindow) {
-        guard let screen = window.screen ?? NSScreen.main else { return }
-        if let previous = fullScreen.exit(ObjectIdentifier(window)) {
-            NSApp.presentationOptions = []
-            window.setFrame(previous, display: true, animate: true)
-        } else {
-            fullScreen.enter(ObjectIdentifier(window), restoring: window.frame)
-            NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
-            window.setFrame(screen.frame, display: true, animate: true)
-        }
-    }
-
-    static func isFullScreen(_ window: NSWindow) -> Bool { fullScreen.isFullScreen(ObjectIdentifier(window)) }
+    static func isFullScreen(_ window: NSWindow) -> Bool { window.styleMask.contains(.fullScreen) }
 
     /// `NSWindow.zoom` is a no-op on a panel, so do what it would: fill the screen's usable area,
     /// and put the previous frame back on the next double-click.
@@ -131,8 +118,8 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     /// `[window] width/height` as fractions of the screen, anchored to the top-left of the usable
-    /// area on the screen the window is on; 0 leaves the remembered frame alone. Full screen (⌘↩)
-    /// is left alone too: the new size is picked up when it is toggled off.
+    /// area on the screen the window is on; 0 leaves the remembered frame alone. A full-screen
+    /// window is left alone too: the new size applies once it leaves full screen.
     func apply(windowConfig: AnteConfig.Window, animate: Bool) {
         guard windowConfig.isFixed, !MainPanel.isFullScreen(panel),
               let visible = Self.screen(showing: panel.frame)?.visibleFrame else { return }
@@ -141,15 +128,6 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     func toggleFullScreen() { MainPanel.toggleFullScreen(panel) }
-
-    /// Closing, minimising, quitting or hiding via the hotkey while in ⌘↩ full screen would
-    /// leave the menu bar hidden and autosave the screen-sized frame; leave full screen first.
-    func exitFullScreenIfNeeded() {
-        if MainPanel.isFullScreen(panel) { MainPanel.toggleFullScreen(panel) }
-    }
-
-    func windowWillClose(_ notification: Notification) { exitFullScreenIfNeeded() }
-    func windowWillMiniaturize(_ notification: Notification) { exitFullScreenIfNeeded() }
 
     /// The screen that shows most of `frame`. `NSWindow.screen` is nil before the window is
     /// ordered in, and `NSScreen.main` is whichever display has the keyboard, which is the wrong

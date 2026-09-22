@@ -31,17 +31,4 @@ final class WindowLevelPolicyTests: XCTestCase {
         XCTAssertNil(policy.lift(colours, over: .normal), "nothing to lift over an ordinary panel")
         XCTAssertNil(policy.restore(colours), "and so nothing to restore")
     }
-
-    func testFullScreenBookkeepingRoundTrips() {
-        var fs = FullScreenBookkeeping()
-        let a = ObjectIdentifier(NSObject())
-        XCTAssertFalse(fs.isFullScreen(a))
-        XCTAssertNil(fs.exit(a))
-        let frame = CGRect(x: 10, y: 20, width: 300, height: 200)
-        fs.enter(a, restoring: frame)
-        fs.enter(a, restoring: .zero)   // a second enter must not overwrite the frame to restore
-        XCTAssertTrue(fs.isFullScreen(a))
-        XCTAssertEqual(fs.exit(a), frame)
-        XCTAssertFalse(fs.isFullScreen(a))
-    }
 }

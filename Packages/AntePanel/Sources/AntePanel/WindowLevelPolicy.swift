@@ -32,21 +32,3 @@ public struct WindowLevelPolicy {
         return entry.level
     }
 }
-
-/// Which windows are in ⌘↩ full screen and the frame each one goes back to.
-public struct FullScreenBookkeeping {
-    private var restoreFrames: [ObjectIdentifier: CGRect] = [:]
-
-    public init() {}
-
-    public func isFullScreen(_ window: ObjectIdentifier) -> Bool { restoreFrames[window] != nil }
-
-    public mutating func enter(_ window: ObjectIdentifier, restoring frame: CGRect) {
-        if restoreFrames[window] == nil { restoreFrames[window] = frame }
-    }
-
-    /// The frame to restore, or nil when the window was not in full screen.
-    public mutating func exit(_ window: ObjectIdentifier) -> CGRect? {
-        restoreFrames.removeValue(forKey: window)
-    }
-}
