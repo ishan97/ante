@@ -21,6 +21,8 @@ final class AppRuntime {
     let settings: SettingsModel
     private let liveShell: LiveShellConfig
     private(set) var hotkey: HotkeyWindowToggler?
+    /// Set by the app delegate once the window exists; `[window]` changes resize it live.
+    weak var windowController: MainWindowController?
     private var configWatcher: ConfigWatcher?
     private var hookWatcher: HookEventWatcher?
     private let integration: InstalledIntegration?
@@ -62,7 +64,11 @@ final class AppRuntime {
         configWatcher = ConfigWatcher(paths: paths) { [weak self] result in
             guard let self else { return }
             self.liveShell.shell = result.config.shell
+            let windowBefore = self.workspace.config.window
             self.workspace.applyConfig(result.config)
+            if result.config.window != windowBefore {
+                self.windowController?.apply(windowConfig: result.config.window, animate: true)
+            }
             if case let .failed(_, error) = result { self.workspace.configError = error } else { self.workspace.configError = nil }
             self.hotkey?.hideOnFocusLoss = result.config.hotkey.hideOnFocusLoss
             self.hotkey?.reveal = Self.reveal(for: result.config.hotkey.animation)

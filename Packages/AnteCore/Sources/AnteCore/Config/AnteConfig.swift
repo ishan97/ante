@@ -149,6 +149,7 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
     }
 
     public var font = Font()
+    public var window = Window()
     public var theme = Theme()
     public var wallpaper = Wallpaper()
     public var hotkey = Hotkey()
@@ -158,15 +159,37 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
     public var cursor = Cursor()
     public var agents = Agents()
 
+    /// `[window]`: the size the workspace window opens at, as fractions of the screen's usable
+    /// area. 0 for either means "remember the last size" instead.
+    public struct Window: Equatable, Sendable, Decodable {
+        public var width: Double = 0.8
+        public var height: Double = 0.8
+
+        public init() {}
+        public init(width: Double, height: Double) { self.width = width; self.height = height }
+
+        /// True when the window opens at the configured size rather than the remembered one.
+        public var isFixed: Bool { width > 0 && height > 0 }
+
+        private enum CodingKeys: String, CodingKey { case width, height }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            width = try c.decodeNumberIfPresent(forKey: .width) ?? width
+            height = try c.decodeNumberIfPresent(forKey: .height) ?? height
+        }
+    }
+
     public init() {}
 
     public static let `default` = AnteConfig()
 
-    private enum CodingKeys: String, CodingKey { case font, theme, wallpaper, hotkey, shell, security, keys, cursor, agents }
+    private enum CodingKeys: String, CodingKey { case font, window, theme, wallpaper, hotkey, shell, security, keys, cursor, agents }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         font = try c.decodeIfPresent(Font.self, forKey: .font) ?? font
+        window = try c.decodeIfPresent(Window.self, forKey: .window) ?? window
         theme = try c.decodeIfPresent(Theme.self, forKey: .theme) ?? theme
         wallpaper = try c.decodeIfPresent(Wallpaper.self, forKey: .wallpaper) ?? wallpaper
         hotkey = try c.decodeIfPresent(Hotkey.self, forKey: .hotkey) ?? hotkey

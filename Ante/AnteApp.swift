@@ -22,6 +22,29 @@ struct AnteApp: App {
             SessionCommands(runtime: runtime.workspace, toggleWindow: { runtime.hotkey?.toggle() })
             EditCommands(runtime: runtime.workspace)
             AppCommands(runtime: runtime.workspace)
+            ViewCommands(runtime: runtime.workspace, settings: runtime.settings,
+                         toggleFullScreen: { [appDelegate] in appDelegate.window?.toggleFullScreen() })
+        }
+    }
+}
+
+/// View menu: iTerm-style full screen and text size, all rebindable under `[keys]`.
+struct ViewCommands: Commands {
+    let runtime: WorkspaceRuntime
+    let settings: SettingsModel
+    let toggleFullScreen: () -> Void
+
+    var body: some Commands {
+        CommandGroup(after: .toolbar) {
+            Button("Toggle Full Screen") { toggleFullScreen() }
+                .keyboardShortcut(runtime.config.keys.toggleFullscreen.shortcut)
+            Divider()
+            Button("Bigger Text") { settings.stepFontSize(by: 1) }
+                .keyboardShortcut(runtime.config.keys.fontBigger.shortcut)
+            Button("Smaller Text") { settings.stepFontSize(by: -1) }
+                .keyboardShortcut(runtime.config.keys.fontSmaller.shortcut)
+            Button("Actual Text Size") { settings.resetFontSize() }
+                .keyboardShortcut(runtime.config.keys.fontReset.shortcut)
         }
     }
 }

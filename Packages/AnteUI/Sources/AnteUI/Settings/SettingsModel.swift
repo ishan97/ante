@@ -97,6 +97,31 @@ public final class SettingsModel {
         get { pendingDouble("font.size") ?? config.font.size }
         set { write("font", "size", .double(min(max(newValue, 8), 40))) }
     }
+    /// ⌘= / ⌘-: one point at a time, within the same 8–40 range the slider allows.
+    public func stepFontSize(by points: Double) { fontSize = (fontSize + points).rounded() }
+    /// ⌘0: back to the size a fresh config starts with.
+    public func resetFontSize() { fontSize = AnteConfig.Font().size }
+
+    // MARK: Window
+
+    /// `[window]` as fractions; the sliders show them as percentages.
+    public var windowWidth: Double {
+        get { pendingDouble("window.width") ?? config.window.width }
+        set { write("window", "width", .double((newValue * 100).rounded() / 100)) }
+    }
+    public var windowHeight: Double {
+        get { pendingDouble("window.height") ?? config.window.height }
+        set { write("window", "height", .double((newValue * 100).rounded() / 100)) }
+    }
+    /// Off means both are 0: the window reopens at whatever size it was closed at.
+    public var windowSizeIsFixed: Bool {
+        get { windowWidth > 0 && windowHeight > 0 }
+        set {
+            let defaults = AnteConfig.Window()
+            windowWidth = newValue ? defaults.width : 0
+            windowHeight = newValue ? defaults.height : 0
+        }
+    }
     public var ligatures: Bool {
         get { config.font.ligatures }
         set { write("font", "ligatures", .bool(newValue)) }

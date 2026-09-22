@@ -1,5 +1,7 @@
 // Ante/MainWindow.swift
 import AppKit
+import AntePanel
+import AnteCore
 import SwiftUI
 import AnteUI
 
@@ -51,6 +53,27 @@ final class MainPanel: NSPanel {
     }
 
     private static var zoomRestoreFrames: [ObjectIdentifier: NSRect] = [:]
+    private static var fullScreenRestoreFrames: [ObjectIdentifier: NSRect] = [:]
+
+    /// ⌘↩, the way iTerm2's non-native full screen works: the window covers the whole screen and
+    /// the menu bar and Dock slide away while Ante is in front; the next press puts the previous
+    /// frame back. Not macOS full screen, which would move the panel to its own Space and break
+    /// the hotkey overlay.
+    static func toggleFullScreen(_ window: NSWindow) {
+        guard let screen = window.screen ?? NSScreen.main else { return }
+        let key = ObjectIdentifier(window)
+        if let previous = fullScreenRestoreFrames[key] {
+            fullScreenRestoreFrames[key] = nil
+            NSApp.presentationOptions = []
+            window.setFrame(previous, display: true, animate: true)
+        } else {
+            fullScreenRestoreFrames[key] = window.frame
+            NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
+            window.setFrame(screen.frame, display: true, animate: true)
+        }
+    }
+
+    static func isFullScreen(_ window: NSWindow) -> Bool { fullScreenRestoreFrames[ObjectIdentifier(window)] != nil }
 
     /// `NSWindow.zoom` is a no-op on a panel, so do what it would: fill the screen's usable area,
     /// and put the previous frame back on the next double-click.
@@ -98,11 +121,26 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         // the board would otherwise snap the window back to a default size and place.
         hosting.sizingOptions = []
         panel.contentView = hosting
+        // setFrameAutosaveName restores the saved frame itself, so the configured size is applied
+        // after it; the remembered frame still decides which screen and corner the window keeps.
         if !panel.setFrameUsingName("AnteMainWindow") { panel.center() }
         panel.setFrameAutosaveName("AnteMainWindow")
+        apply(windowConfig: runtime.workspace.config.window, animate: false)
     }
 
     func show() {
         panel.makeKeyAndOrderFront(nil)
     }
+
+    /// `[window] width/height` as fractions of the screen; 0 leaves the remembered frame alone.
+    /// Full screen (⌘↩) is left alone too: the new size is picked up when it is toggled off.
+    func apply(windowConfig: AnteConfig.Window, animate: Bool) {
+        guard windowConfig.isFixed, !MainPanel.isFullScreen(panel),
+              let visible = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
+        let frame = WindowSizing.frame(fraction: windowConfig.width, windowConfig.height, in: visible,
+                                       previous: panel.frame, minSize: panel.minSize)
+        if frame != panel.frame { panel.setFrame(frame, display: true, animate: animate) }
+    }
+
+    func toggleFullScreen() { MainPanel.toggleFullScreen(panel) }
 }

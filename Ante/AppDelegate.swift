@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let runtime else { return }
         let controller = MainWindowController(runtime: runtime)
         window = controller
+        runtime.windowController = controller
         controller.show()
         runtime.installHotkey(window: controller.panel)
         // Sparkle reads SUFeedURL / SUPublicEDKey from Info.plist; a Debug build from Xcode has

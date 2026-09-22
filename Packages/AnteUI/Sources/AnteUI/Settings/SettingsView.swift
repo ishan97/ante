@@ -68,6 +68,23 @@ public struct SettingsView: View {
                     }
                 }
             }
+            Section("Window") {
+                Toggle("Open at a fixed size", isOn: $model.windowSizeIsFixed)
+                if model.windowSizeIsFixed {
+                    HStack {
+                        Text("Width")
+                        Slider(value: $model.windowWidth, in: 0.3...1, step: 0.05)
+                        Text(String(format: "%.0f%%", model.windowWidth * 100)).monospacedDigit().frame(width: 44, alignment: .trailing)
+                    }
+                    HStack {
+                        Text("Height")
+                        Slider(value: $model.windowHeight, in: 0.3...1, step: 0.05)
+                        Text(String(format: "%.0f%%", model.windowHeight * 100)).monospacedDigit().frame(width: 44, alignment: .trailing)
+                    }
+                    Text("Of the screen, each time Ante opens. Off: the window reopens at the size you left it.")
+                        .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+                }
+            }
             Section("Show or hide Ante from any app") {
                 KeyboardShortcuts.Recorder("Hotkey:", name: .showHideAnte)
                 Picker("Animation", selection: $model.hotkeyAnimation) {

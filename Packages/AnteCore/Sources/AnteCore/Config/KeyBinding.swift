@@ -96,6 +96,10 @@ extension AnteConfig {
         public var sessionsBoard = KeyBinding(key: "s", modifiers: [.cmd, .shift])
         public var insertFile = KeyBinding(key: "o", modifiers: [.cmd, .shift])
         public var scratchpad = KeyBinding(key: "t", modifiers: [.cmd, .shift])
+        public var toggleFullscreen = KeyBinding(key: "return", modifiers: [.cmd])
+        public var fontBigger = KeyBinding(key: "=", modifiers: [.cmd])
+        public var fontSmaller = KeyBinding(key: "-", modifiers: [.cmd])
+        public var fontReset = KeyBinding(key: "0", modifiers: [.cmd])
 
         public init() {}
 
@@ -104,6 +108,7 @@ extension AnteConfig {
             case closePane = "close_pane", splitRight = "split_right", splitDown = "split_down"
             case splitLeft = "split_left", splitUp = "split_up", toggleSidebar = "toggle_sidebar"
             case sessionsBoard = "sessions_board", insertFile = "insert_file", scratchpad
+            case toggleFullscreen = "toggle_fullscreen", fontBigger = "font_bigger", fontSmaller = "font_smaller", fontReset = "font_reset"
         }
 
         public init(from decoder: Decoder) throws {
@@ -121,6 +126,10 @@ extension AnteConfig {
             sessionsBoard = try c.decodeIfPresent(KeyBinding.self, forKey: .sessionsBoard) ?? sessionsBoard
             insertFile = try c.decodeIfPresent(KeyBinding.self, forKey: .insertFile) ?? insertFile
             scratchpad = try c.decodeIfPresent(KeyBinding.self, forKey: .scratchpad) ?? scratchpad
+            toggleFullscreen = try c.decodeIfPresent(KeyBinding.self, forKey: .toggleFullscreen) ?? toggleFullscreen
+            fontBigger = try c.decodeIfPresent(KeyBinding.self, forKey: .fontBigger) ?? fontBigger
+            fontSmaller = try c.decodeIfPresent(KeyBinding.self, forKey: .fontSmaller) ?? fontSmaller
+            fontReset = try c.decodeIfPresent(KeyBinding.self, forKey: .fontReset) ?? fontReset
         }
 
         /// (config key, label, binding) for every action, in Settings order.
@@ -130,7 +139,9 @@ extension AnteConfig {
              ("split_right", "Split right", splitRight), ("split_down", "Split down", splitDown),
              ("split_left", "Split left", splitLeft), ("split_up", "Split up", splitUp),
              ("toggle_sidebar", "Toggle sidebar", toggleSidebar), ("sessions_board", "Sessions", sessionsBoard),
-             ("insert_file", "Insert file path…", insertFile), ("scratchpad", "To-do & notes", scratchpad)]
+             ("insert_file", "Insert file path…", insertFile), ("scratchpad", "To-do & notes", scratchpad),
+             ("toggle_fullscreen", "Full screen", toggleFullscreen), ("font_bigger", "Bigger text", fontBigger),
+             ("font_smaller", "Smaller text", fontSmaller), ("font_reset", "Actual text size", fontReset)]
         }
     }
 }

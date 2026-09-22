@@ -79,3 +79,31 @@ extension SettingsModelTests {
         XCTAssertEqual(model.themeName, "gruvbox-dark", "third-party themes are left alone")
     }
 }
+
+extension SettingsModelTests {
+    func testFontStepsStayInRangeAndWindowToggleWritesZeros() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ante-set-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(root: root, configRoot: root.appendingPathComponent("config"))
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+            ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: [], kind: .other)
+        })
+        let model = SettingsModel(runtime: runtime)
+        model.stepFontSize(by: 1); model.stepFontSize(by: 1)
+        XCTAssertEqual(model.fontSize, 15)
+        model.stepFontSize(by: -30)
+        XCTAssertEqual(model.fontSize, 8, "clamped at the slider's floor")
+        model.resetFontSize()
+        XCTAssertEqual(model.fontSize, 13)
+
+        XCTAssertTrue(model.windowSizeIsFixed)
+        model.windowSizeIsFixed = false
+        XCTAssertEqual(model.windowWidth, 0)
+        model.windowSizeIsFixed = true
+        XCTAssertEqual(model.windowHeight, 0.8)
+        model.flushPendingWrites()
+        let text = try String(contentsOf: paths.configFile, encoding: .utf8)
+        XCTAssertTrue(text.contains("[window]"), text)
+        XCTAssertTrue(text.contains("width = 0.8"), text)
+    }
+}

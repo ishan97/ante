@@ -20,7 +20,8 @@ Requires Xcode 26 and the Metal toolchain (`xcodebuild -downloadComponent MetalT
 ## Configure
 
 `~/.config/ante/config.toml`, hot-reloaded. Settings (⌘,) edits the same file and keeps your
-comments. Themes go in `~/.config/ante/themes/*.toml`; import iTerm2 `.itermcolors` or Alacritty
+comments. `[window] width` and `height` (fractions of the screen, default 0.8) set the size Ante
+opens at; 0 makes it reopen at the size you left it. Themes go in `~/.config/ante/themes/*.toml`; import iTerm2 `.itermcolors` or Alacritty
 `.toml` from Settings → Appearance.
 
 ## Updates
@@ -57,6 +58,8 @@ hook (into `~/.claude/settings.json`, backed up; removable) for the definite sig
 | ⌘1–9, ⌘⇧[ ] | jump between sessions |
 | ⌘F | find in scrollback |
 | ⌘K | clear pane |
+| ⌘↩ | full screen (menu bar and Dock hide), press again to go back |
+| ⌘= / ⌘- / ⌘0 | bigger / smaller / actual text size |
 | ⌘⇧S | sessions board |
 | ⌘⌥S | show / hide the sidebar |
 | ⌘⇧O | insert file path (or drop files onto the terminal) |

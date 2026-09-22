@@ -18,9 +18,9 @@ git read-tree -u --reset main
 if [ -n "$(git ls-files docs/superpowers)" ]; then
   echo "docs/superpowers is tracked; it must stay ignored"; git checkout -q main; exit 1
 fi
-if git grep -q -i -E "sherlock|fritz\.box|macbook|var/folders|friction-log|raw\.bin|claude\.ai/code" -- . ':!scripts/publish.sh' 2>/dev/null; then
+if git grep -q -i -E "sherlock|fritz\.box|ishans-macbook|var/folders|friction-log|raw\.bin|claude\.ai/code" -- . ':!scripts/publish.sh' 2>/dev/null; then
   echo "personal or internal strings found in the tree; not publishing:"
-  git grep -n -i -E "sherlock|fritz\.box|macbook|var/folders|friction-log|raw\.bin|claude\.ai/code" -- . ':!scripts/publish.sh' | head
+  git grep -n -i -E "sherlock|fritz\.box|ishans-macbook|var/folders|friction-log|raw\.bin|claude\.ai/code" -- . ':!scripts/publish.sh' | head
   git checkout -q main
   exit 1
 fi
