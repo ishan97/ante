@@ -45,7 +45,9 @@ closed in Ante; click one to open a pane in that project and resume it (`claude 
 `codex resume …`, `opencode --session …`, `pi --session …`).
 
 "Waiting for you" is definite when an agent hook says so and probable when an agent has been
-quiet for `[agents] quiet_seconds` (default 8). Settings → Agents can install the Claude Code
+quiet for `[agents] quiet_seconds` (default 8). The moment a session moves into that column Ante
+posts a macOS notification (click it to jump to the session) and plays the sound you pick under
+Settings → Agents (`[agents] notify`, `notify_sound`); the Dock icon counts waiting sessions. Settings → Agents can install the Claude Code
 hook (into `~/.claude/settings.json`, backed up; removable) for the definite signal.
 
 ## Keys

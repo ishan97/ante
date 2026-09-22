@@ -1,6 +1,7 @@
 // Packages/AnteUI/Sources/AnteUI/Sessions/SessionBoardModel.swift
 import Foundation
 import Observation
+import AppKit
 import AnteCore
 import AnteTerm
 
@@ -35,9 +36,17 @@ public final class SessionBoardModel {
     private var hookSignals: [String: (meaning: HookEvent.Meaning, at: Date)] = [:]
     private var columnSince: [PaneID: (column: BoardColumn, at: Date)] = [:]
     private var timer: Timer?
+    /// Delivers a "waiting for you" notification (macOS notification + the configured sound);
+    /// tests replace it with a recorder.
+    public var deliverWaiting: (Card, String) -> Void = { _, _ in }
+    /// The Dock badge; replaceable so tests never touch NSApp.
+    public var setBadge: (Int) -> Void = { count in NSApp?.dockTile.badgeLabel = count > 0 ? String(count) : nil }
 
     init(runtime: WorkspaceRuntime) {
         self.runtime = runtime
+        deliverWaiting = { [unowned runtime] card, reason in
+            WaitingNotifier.post(card: card, reason: reason, sound: runtime.config.agents.notifySound)
+        }
     }
 
     // MARK: - Lifecycle
@@ -95,7 +104,24 @@ public final class SessionBoardModel {
         }
         let live = Set(next.map(\.id))
         columnSince = columnSince.filter { live.contains($0.key) }
+        let previous = cards
         if next != cards { cards = next }
+        noticeWaiting(previous: previous, next: next, quiet: quiet)
+    }
+
+    private var lastBadge = -1
+
+    /// A card that just entered Waiting gets one notification, unless the user is already looking
+    /// at that pane. The Dock badge always shows how many are waiting.
+    private func noticeWaiting(previous: [Card], next: [Card], quiet: Double) {
+        let waiting = next.filter { $0.state.column == .waiting }.count
+        if waiting != lastBadge { lastBadge = waiting; setBadge(waiting) }
+        guard runtime.config.agents.notify else { return }
+        let appActive = NSApp?.isActive ?? false
+        for card in WaitingNotifier.newlyWaiting(previous: previous, next: next)
+        where WaitingNotifier.shouldNotify(card: card, focusedPane: runtime.focusedPaneID, appActive: appActive) {
+            deliverWaiting(card, WaitingNotifier.reason(for: card.state, quietSeconds: quiet))
+        }
     }
 
     public func cards(in column: BoardColumn) -> [Card] {

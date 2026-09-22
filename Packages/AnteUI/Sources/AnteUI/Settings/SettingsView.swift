@@ -238,6 +238,16 @@ public struct SettingsView: View {
                 Text("Without a hook, an agent that prints nothing for this long is shown as probably waiting.")
                     .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
             }
+            Section("Notifications") {
+                Toggle("Notify when a session is waiting for you", isOn: $model.notifyWaiting)
+                Picker("Sound", selection: $model.notifySound) {
+                    Text("None").tag("")
+                    ForEach(model.notifySoundChoices, id: \.self) { Text($0).tag($0) }
+                }
+                .disabled(!model.notifyWaiting)
+                Text("A macOS notification with the session's name and why it stopped; click it to jump there. Nothing is sent for the pane you are already looking at. The Dock icon counts waiting sessions.")
+                    .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+            }
             Section("History") {
                 Picker("Claude Code keeps transcripts for", selection: $model.claudeRetentionDays) {
                     ForEach(SettingsModel.retentionChoices, id: \.days) { Text($0.label).tag($0.days) }

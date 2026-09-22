@@ -252,6 +252,16 @@ public final class SettingsModel {
 
     // MARK: Agents
 
+    public var notifyWaiting: Bool {
+        get { pendingBool("agents.notify") ?? config.agents.notify }
+        set { write("agents", "notify", .bool(newValue)) }
+    }
+    /// A system sound name, or "" for none. Setting it plays a preview.
+    public var notifySound: String {
+        get { pendingString("agents.notify_sound") ?? config.agents.notifySound }
+        set { write("agents", "notify_sound", .string(newValue)); SystemSounds.play(named: newValue) }
+    }
+    public var notifySoundChoices: [String] { SystemSounds.names }
     public var quietSeconds: Double {
         get { pendingDouble("agents.quiet_seconds") ?? config.agents.quietSeconds }
         set { write("agents", "quiet_seconds", .double(newValue.rounded())) }
