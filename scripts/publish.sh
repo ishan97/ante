@@ -22,11 +22,18 @@ fi
 
 # The leak guard learns this machine's names at run time, so the script itself never has to
 # carry them. Generic patterns catch the artefacts that leaked once before.
-me="$(id -un)"
-host="$(scutil --get LocalHostName 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)"
 pattern="var/folders|friction-log|raw\.bin|claude\.ai/code"
-[ "${#me}" -lt 5 ] || pattern="$pattern|$me"        # a short name ("mac") would match ordinary words
-[ "${#host}" -lt 5 ] || pattern="$pattern|$host"
+# Names are matched as whole tokens (not inside other words), and only when five characters or
+# longer, so a login such as "mac" cannot block every publish.
+add_name() {
+  local n; n="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d ' ')"
+  [ "${#n}" -lt 5 ] || pattern="$pattern|(^|[^a-z0-9])$n([^a-z0-9]|$)"
+}
+add_name "$(id -un)"
+host="$(scutil --get LocalHostName 2>/dev/null || true)"
+add_name "$host"
+add_name "${host%-*}"                                       # "name-macbook" without the model suffix
+add_name "$(scutil --get ComputerName 2>/dev/null || true)"
 # The script names the patterns it looks for, so it is the one file left out of the scan.
 hits="$(git grep -n -i -E "$pattern" -- . ':!scripts/publish.sh' || true)"
 # Absolute home paths are only ever the synthetic fixtures /Users/t, /Users/x, /Users/me.
