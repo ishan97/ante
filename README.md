@@ -88,9 +88,11 @@ with an AI inside it. It is drawn by `scripts/render-icon.swift` at every size
 
 ## Versioning
 
-The marketing version lives in `project.yml` (`CFBundleShortVersionString`). `scripts/package.sh`
-stamps each DMG with a build number equal to the commit count, so two builds of the same version
-are still distinguishable in the About box and in crash logs.
+Ante follows [semantic versioning](https://semver.org): **major** for changes that break existing
+configs or behaviour people rely on, **minor** for new features, **patch** for fixes only. The
+version lives in `project.yml` (`CFBundleShortVersionString`); the build number
+(`CFBundleVersion`) is the commit count, which Sparkle compares, so it always grows.
+`scripts/prepare-release.sh <version>` stamps both, commits, publishes and tags.
 
 ## Distributing
 
