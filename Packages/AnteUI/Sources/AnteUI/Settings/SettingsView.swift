@@ -72,12 +72,12 @@ public struct SettingsView: View {
                 Toggle("Open at a fixed size", isOn: $model.windowSizeIsFixed)
                 if model.windowSizeIsFixed {
                     HStack {
-                        Text("Width")
+                        Text("Window width")
                         Slider(value: $model.windowWidth, in: 0.3...1, step: 0.05)
                         Text(String(format: "%.0f%%", model.windowWidth * 100)).monospacedDigit().frame(width: 44, alignment: .trailing)
                     }
                     HStack {
-                        Text("Height")
+                        Text("Window height")
                         Slider(value: $model.windowHeight, in: 0.3...1, step: 0.05)
                         Text(String(format: "%.0f%%", model.windowHeight * 100)).monospacedDigit().frame(width: 44, alignment: .trailing)
                     }
@@ -91,12 +91,12 @@ public struct SettingsView: View {
                     ForEach(AnteConfig.Hotkey.Animation.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
                 HStack {
-                    Text("Width")
+                    Text("Overlay width")
                     Slider(value: $model.hotkeyWidth, in: 0.3...1, step: 0.05)
                     Text(String(format: "%.0f%%", model.hotkeyWidth * 100)).monospacedDigit().frame(width: 44, alignment: .trailing)
                 }
                 HStack {
-                    Text("Height")
+                    Text("Overlay height")
                     Slider(value: $model.hotkeyHeight, in: 0.3...1, step: 0.05)
                     Text(String(format: "%.0f%%", model.hotkeyHeight * 100)).monospacedDigit().frame(width: 44, alignment: .trailing)
                 }
