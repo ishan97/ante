@@ -93,6 +93,11 @@ public final class HotkeyWindowToggler {
     public func toggle() {
         guard !isAnimating, let window else { return }
         Self.logger.notice("hotkey: appActive=\(NSApplication.shared.isActive) visible=\(window.isVisible) key=\(window.isKeyWindow)")
+        if isNativeFullScreen {
+            // On its own Space, key status is not a useful signal: hidden means show, else hide.
+            if hiddenWhileFullScreen || NSApplication.shared.isHidden { show() } else { hide() }
+            return
+        }
         if Self.shouldHide(windowVisible: window.isVisible, windowKey: window.isKeyWindow) {
             hide()
         } else {
@@ -103,6 +108,11 @@ public final class HotkeyWindowToggler {
     /// A window in macOS full screen lives on its own Space; the hotkey then hides and unhides
     /// the app (macOS switches Spaces for us) and never touches the frame or level.
     private var isNativeFullScreen: Bool { window?.styleMask.contains(.fullScreen) ?? false }
+    /// Set when the hotkey hid a full-screen Ante. `NSApplication.isHidden` is not reliable
+    /// right after hiding a full-screen app, so the toggler remembers what it did; the flag also
+    /// clears if the user unhides Ante some other way (Dock, ⌘-Tab).
+    private var hiddenWhileFullScreen = false
+    private var unhideObserver: NSObjectProtocol?
 
     public func show() {
         guard let window else { return }
@@ -112,6 +122,7 @@ public final class HotkeyWindowToggler {
         }
         if isNativeFullScreen {
             Self.logger.notice("hotkey: show (full screen)")
+            hiddenWhileFullScreen = false
             NSApplication.shared.unhide(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
@@ -165,6 +176,12 @@ public final class HotkeyWindowToggler {
         isSummoned = false
         if isNativeFullScreen {
             Self.logger.notice("hotkey: hide (full screen)")
+            hiddenWhileFullScreen = true
+            if unhideObserver == nil {
+                unhideObserver = NotificationCenter.default.addObserver(forName: NSApplication.didUnhideNotification, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.hiddenWhileFullScreen = false }
+                }
+            }
             NSApplication.shared.hide(nil)   // back to the Space and app you came from
             return
         }

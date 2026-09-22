@@ -56,7 +56,25 @@ final class MainPanel: NSPanel {
     /// ⌘↩: macOS's own full screen (the window gets its own Space), the way iTerm2's default
     /// works; the next press goes back. While full screen the hotkey hides and unhides the app
     /// instead of moving the window (see HotkeyWindowToggler).
-    static func toggleFullScreen(_ window: NSWindow) { window.toggleFullScreen(nil) }
+    /// AppKit ignores `toggleFullScreen` for a window of an inactive app (Ante summoned by the
+    /// hotkey stays inactive on purpose), and drops it when asked in the same turn as activation.
+    /// So: activate, then toggle on the next turn of the run loop.
+    static func toggleFullScreen(_ window: NSWindow) {
+        if !isFullScreen(window) {
+            // The hotkey overlay is a "full-screen auxiliary" window on every Space at a raised
+            // level; such a window can never become a full-screen Space of its own. Make it an
+            // ordinary primary window again first (the next summon sets the overlay behaviour back).
+            window.collectionBehavior = [.managed, .fullScreenPrimary]
+            window.level = .normal
+            if !NSApp.isActive {
+                NSApp.activate(ignoringOtherApps: true)
+                window.makeKeyAndOrderFront(nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(60)) { window.toggleFullScreen(nil) }
+                return
+            }
+        }
+        window.toggleFullScreen(nil)
+    }
 
     static func isFullScreen(_ window: NSWindow) -> Bool { window.styleMask.contains(.fullScreen) }
 
@@ -134,6 +152,12 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     func toggleFullScreen() { MainPanel.toggleFullScreen(panel) }
+
+    /// The full-screen transition can drop key status; claim it back so ⌘↩ and typing work.
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+    }
 
     /// The screen that shows most of `frame`. `NSWindow.screen` is nil before the window is
     /// ordered in, and `NSScreen.main` is whichever display has the keyboard, which is the wrong
