@@ -75,6 +75,12 @@ final class MainPanel: NSPanel {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // ⌘↩ (or whatever `[keys] toggle_fullscreen` says) is handled here, before the menu: it
+        // must work whether Ante is the active app or merely owns the key window.
+        if let runtime, runtime.config.keys.toggleFullscreen.matches(event) {
+            Self.toggleFullScreen(self)
+            return true
+        }
         if super.performKeyEquivalent(with: event) { return true }
         guard !NSApp.isActive, let menu = NSApp.mainMenu else { return false }
         return menu.performKeyEquivalent(with: event)
