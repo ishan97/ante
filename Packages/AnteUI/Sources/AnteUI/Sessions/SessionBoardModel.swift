@@ -41,6 +41,9 @@ public final class SessionBoardModel {
     public var deliverWaiting: (Card, String) -> Void = { _, _ in }
     /// The Dock badge; replaceable so tests never touch NSApp.
     public var setBadge: (Int) -> Void = { count in NSApp?.dockTile.badgeLabel = count > 0 ? String(count) : nil }
+    /// Whether the user is looking at Ante. The workspace window is a non-activating panel, so
+    /// clicking into it makes it key without making the app active; either counts.
+    public var isInFront: () -> Bool = { (NSApp?.isActive ?? false) || NSApp?.keyWindow != nil }
 
     init(runtime: WorkspaceRuntime) {
         self.runtime = runtime
@@ -117,9 +120,9 @@ public final class SessionBoardModel {
         let waiting = next.filter { $0.state.column == .waiting }.count
         if waiting != lastBadge { lastBadge = waiting; setBadge(waiting) }
         guard runtime.config.agents.notify else { return }
-        let appActive = NSApp?.isActive ?? false
+        let inFront = isInFront()
         for card in WaitingNotifier.newlyWaiting(previous: previous, next: next)
-        where WaitingNotifier.shouldNotify(card: card, focusedPane: runtime.focusedPaneID, appActive: appActive) {
+        where WaitingNotifier.shouldNotify(card: card, focusedPane: runtime.focusedPaneID, appActive: inFront) {
             deliverWaiting(card, WaitingNotifier.reason(for: card.state, quietSeconds: quiet))
         }
     }

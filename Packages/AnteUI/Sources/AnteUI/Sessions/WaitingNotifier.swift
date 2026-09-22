@@ -27,7 +27,9 @@ public enum WaitingNotifier {
         }
     }
 
-    @MainActor private static var askedForPermission = false
+    private enum Permission { case unknown, requesting, decided(Bool) }
+    @MainActor private static var permission = Permission.unknown
+    @MainActor private static var queued: [() -> Void] = []
 
     /// Posts the notification (silent: the sound is played here so the user's chosen system sound
     /// applies, which UNNotificationSound cannot do for /System/Library/Sounds) and tags it with
@@ -41,9 +43,20 @@ public enum WaitingNotifier {
         content.userInfo = [userInfoSessionKey: card.sessionID.rawValue.uuidString]
         let center = UNUserNotificationCenter.current()
         let post = { center.add(UNNotificationRequest(identifier: "ante.waiting.\(card.id.rawValue.uuidString)", content: content, trigger: nil)) }
-        if askedForPermission { post() } else {
-            askedForPermission = true
-            center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in if granted { post() } }
+        switch permission {
+        case .decided(true): post()
+        case .decided(false): break
+        case .requesting: queued.append(post)   // the prompt is still up; deliver once it is answered
+        case .unknown:
+            permission = .requesting
+            queued.append(post)
+            center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                Task { @MainActor in
+                    permission = .decided(granted)
+                    let pending = queued; queued = []
+                    if granted { pending.forEach { $0() } }
+                }
+            }
         }
     }
 }

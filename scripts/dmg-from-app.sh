@@ -5,10 +5,13 @@
 # notarization ticket to the DMG if the app carries one. Then signs the DMG for Sparkle and
 # updates appcast.xml, and prints the two commands that finish the release.
 set -euo pipefail
-app="${1:?usage: dmg-from-app.sh <Ante.app> [out.dmg]}"
+app="$(cd "$(dirname "${1:?usage: dmg-from-app.sh <Ante.app> [out.dmg]}")" && pwd)/$(basename "$1")"
+out_arg="${2:-}"
+[ -z "$out_arg" ] || case "$out_arg" in /*) ;; *) out_arg="$PWD/$out_arg";; esac
+cd "$(dirname "$0")/.."   # dist/, appcast.xml and scripts/ are repo-relative from here
 version="$(/usr/libexec/PlistBuddy -c "Print:CFBundleShortVersionString" "$app/Contents/Info.plist")"
 build="$(/usr/libexec/PlistBuddy -c "Print:CFBundleVersion" "$app/Contents/Info.plist")"
-out="${2:-dist/Ante-$version.dmg}"
+out="${out_arg:-dist/Ante-$version.dmg}"
 stage="$(mktemp -d)/dmg"; mkdir -p "$stage" "$(dirname "$out")"
 cp -R "$app" "$stage/"; ln -s /Applications "$stage/Applications"
 rm -f "$out"

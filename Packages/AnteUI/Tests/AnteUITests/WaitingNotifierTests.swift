@@ -46,46 +46,74 @@ final class WaitingNotifierTests: XCTestCase {
 }
 
 extension WaitingNotifierTests {
-    /// End to end through the board: a pane whose foreground process is named `claude` and prints
-    /// nothing crosses the quiet threshold, is delivered once, badges the Dock, and is not
-    /// delivered again while it keeps waiting.
-    func testBoardDeliversOnceWhenARealAgentProcessGoesQuiet() throws {
+    private struct BoardRun { var delivered: [(String, String)]; var badges: [Int] }
+
+    /// Runs a real pane whose foreground process is named `claude` and prints nothing through
+    /// the board until it crosses the 1 s quiet threshold (or 6 s pass), recording deliveries.
+    private func runBoard(notify: Bool = true, inFront: Bool = false, focusThePane: Bool = true) throws -> BoardRun {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ante-agent-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        let root = dir.appendingPathComponent("state")
-        let paths = AppPaths(root: root, configRoot: dir.appendingPathComponent("config"))
+        let paths = AppPaths(root: dir.appendingPathComponent("state"), configRoot: dir.appendingPathComponent("config"))
         var config = AnteConfig.default
         config.agents.quietSeconds = 1
+        config.agents.notify = notify
         let runtime = WorkspaceRuntime(paths: paths, config: config, launchFactory: { _ in
             // `exec -a` names the process "claude", which is what the foreground probe classifies on.
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "exec -a claude /bin/sleep 30"], environment: ["PATH=/usr/bin:/bin"], kind: .other)
         })
         defer { runtime.prepareForQuit() }
-        var delivered: [(String, String)] = []
-        var badges: [Int] = []
-        runtime.board.deliverWaiting = { card, reason in delivered.append((card.sessionName, reason)) }
-        runtime.board.setBadge = { badges.append($0) }
+        var run = BoardRun(delivered: [], badges: [])
+        runtime.board.deliverWaiting = { card, reason in run.delivered.append((card.sessionName, reason)) }
+        runtime.board.setBadge = { run.badges.append($0) }
+        runtime.board.isInFront = { inFront }
 
         let session = try XCTUnwrap(runtime.store.allVisibleSessions.first)
         runtime.open(session: session.id)
         let pane = try XCTUnwrap(runtime.focusedPaneID)
         _ = runtime.controller(for: pane)   // spawns the stand-in agent
-
+        if !focusThePane {
+            // A second session takes the focus, so the agent's pane is not the one being looked at.
+            let other = runtime.newSession(in: session.projectID)
+            runtime.open(session: other.id)
+        }
         // Pump the main run loop so the PTY reader, the 2 s foreground probe and its hop back to
-        // the main actor all run; the process prints nothing, so the 1 s quiet threshold passes.
+        // the main actor all run.
         for _ in 0..<60 {
             RunLoop.main.run(until: Date().addingTimeInterval(0.1))
             runtime.board.refresh()
-            if !delivered.isEmpty { break }
+            if run.badges.last == 1 && (!run.delivered.isEmpty || !notify || (inFront && focusThePane)) {
+                // give a wrongly-delivered notification a moment to show up before concluding
+                RunLoop.main.run(until: Date().addingTimeInterval(0.3)); runtime.board.refresh()
+                break
+            }
         }
-        let c = runtime.controller(for: pane)
-        let info = "cards=\(runtime.board.cards.map { "\($0.state) agent=\($0.agent)" }) state=\(c.state) agent=\(c.agent) activity=\(c.activity) fg=\(String(describing: c.foregroundCommand)) lastOut=\(Date().timeIntervalSince(c.lastOutputAt))s layout=\(runtime.existingLayout(for: session.id) != nil) visible=\(runtime.store.allVisibleSessions.count)"
-        XCTAssertEqual(delivered.count, 1, "one notification when the pane enters Waiting; \(info)")
-        XCTAssertEqual(delivered.first?.1, "Quiet for 1s — probably waiting for you")
-        XCTAssertEqual(badges.last, 1)
         runtime.board.refresh(); runtime.board.refresh()
-        XCTAssertEqual(delivered.count, 1, "still waiting: no repeat")
+        return run
+    }
+
+    /// End to end: one delivery when the pane enters Waiting, the badge counts it, no repeat.
+    func testBoardDeliversOnceWhenARealAgentProcessGoesQuiet() throws {
+        let run = try runBoard(inFront: false)
+        XCTAssertEqual(run.delivered.count, 1, "one notification when the pane enters Waiting")
+        XCTAssertEqual(run.delivered.first?.1, "Quiet for 1s — probably waiting for you")
+        XCTAssertEqual(run.badges.last, 1)
+    }
+
+    func testNoDeliveryForThePaneBeingLookedAtButTheBadgeStillCounts() throws {
+        let run = try runBoard(inFront: true, focusThePane: true)
+        XCTAssertTrue(run.delivered.isEmpty, "the user is looking at it")
+        XCTAssertEqual(run.badges.last, 1)
+    }
+
+    func testAnotherSessionsPaneNotifiesEvenWhileAnteIsInFront() throws {
+        let run = try runBoard(inFront: true, focusThePane: false)
+        XCTAssertEqual(run.delivered.count, 1)
+    }
+
+    func testNotifyOffStillBadgesTheDock() throws {
+        let run = try runBoard(notify: false, inFront: false)
+        XCTAssertTrue(run.delivered.isEmpty)
+        XCTAssertEqual(run.badges.last, 1)
     }
 }

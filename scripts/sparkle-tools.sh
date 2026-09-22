@@ -11,7 +11,7 @@ if [ ! -x "$dir/bin/generate_appcast" ]; then
   mkdir -p "$dir"
   tarball="$dir/Sparkle-$version.tar.xz"
   [ -f "$tarball" ] || curl -sSL -o "$tarball" "https://github.com/sparkle-project/Sparkle/releases/download/$version/Sparkle-$version.tar.xz"
-  echo "$sha  $tarball" | shasum -a 256 -c - >/dev/null
+  echo "$sha  $tarball" | shasum -a 256 -c - >/dev/null || { rm -f "$tarball"; echo "Sparkle tarball checksum mismatch; deleted it, run again"; exit 1; }
   tar -xJf "$tarball" -C "$dir"
 fi
 echo "$PWD/$dir/bin"

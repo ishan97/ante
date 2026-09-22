@@ -60,5 +60,7 @@ extension KeyBindingTests {
         XCTAssertEqual(c.window.width, 0.5)
         XCTAssertEqual(c.window.height, 1)
         XCTAssertFalse(try ConfigLoader().parse("[window]\nwidth = 0").window.isFixed, "0 means remember the last size")
+        XCTAssertFalse(try ConfigLoader().parse("[window]\nheight = 0").window.isFixed, "either side at 0 is enough")
+        XCTAssertFalse(try ConfigLoader().parse("[window]\nwidth = -1").window.isFixed, "negative is treated like 0")
     }
 }

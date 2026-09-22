@@ -93,11 +93,14 @@ echo "== appcast"
 # https://github.com/ishan97/ante/releases/latest/download/Ante.dmg
 cp -f "$dmg" dist/Ante.dmg
 sparkle_bin="$(scripts/sparkle-tools.sh)"
+# generate_appcast refuses a directory holding the same archive twice (Ante-<v>.dmg and Ante.dmg),
+# so it gets a scratch directory with just the release asset.
+feed="$(mktemp -d)/feed"; mkdir -p "$feed"; cp dist/Ante.dmg "$feed/"
 "$sparkle_bin/generate_appcast" \
   --download-url-prefix "https://github.com/ishan97/ante/releases/download/v$version/" \
-  -o appcast.xml dist/
+  -o appcast.xml "$feed"
 echo "appcast.xml updated for $version ($build)."
 echo
 echo "next:"
 echo "  gh release create v$version dist/Ante.dmg --title \"Ante $version\" --notes \"...\""
-echo "  git checkout public && git checkout main -- . && git commit -am \"Ante $version\" && git push origin public:main && git checkout main"
+echo "  git commit -am \"release: $version appcast\" && scripts/publish.sh \"release: $version appcast\""

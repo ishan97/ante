@@ -2,6 +2,7 @@
 import AppKit
 import UserNotifications
 import AnteCore
+import AntePanel
 import AnteUI
 
 @MainActor
@@ -11,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var updater: Updater?
     private var keyObserver: NSObjectProtocol?
     private var closeObserver: NSObjectProtocol?
+    private var levels = WindowLevelPolicy()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -53,16 +55,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             let other = note.object as? NSWindow
             MainActor.assumeIsolated {
                 guard let self, let other, let panel = self.window?.panel, other !== panel,
-                      other.level.rawValue < panel.level.rawValue else { return }
-                other.level = panel.level
+                      let lifted = self.levels.lift(other, over: panel.level) else { return }
+                other.level = lifted
                 other.orderFrontRegardless()
             }
         }
         closeObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { [weak self] note in
             let other = note.object as? NSWindow
             MainActor.assumeIsolated {
-                guard let self, let other, other !== self.window?.panel else { return }
-                other.level = .normal
+                // Only windows this policy lifted go back; the shared colour panel keeps floating.
+                guard let self, let other, let original = self.levels.restore(other) else { return }
+                other.level = original
             }
         }
     }
@@ -77,15 +80,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// Clicking a "waiting for you" notification opens that session.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         let info = response.notification.request.content.userInfo
-        guard let raw = info[WaitingNotifier.userInfoSessionKey] as? String, let uuid = UUID(uuidString: raw) else { return }
+        let sessionUUID = (info[WaitingNotifier.userInfoSessionKey] as? String).flatMap(UUID.init(uuidString:))
         await MainActor.run {
-            guard let runtime else { return }
-            let id = SessionID(rawValue: uuid)
+            // Any Ante notification brings the window back; a session one also opens that session.
+            window?.show()
+            NSApp.activate(ignoringOtherApps: true)
+            guard let runtime, let sessionUUID else { return }
+            let id = SessionID(rawValue: sessionUUID)
             if runtime.workspace.store.state.sessions.contains(where: { $0.id == id }) {
                 runtime.workspace.open(session: id)
             }
-            window?.show()
-            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
@@ -94,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        window?.exitFullScreenIfNeeded()   // so the autosaved frame is the real one, not the screen
         runtime?.prepareForQuit()
         return .terminateNow
     }

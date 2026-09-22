@@ -23,6 +23,9 @@ public final class HotkeyWindowToggler {
     public weak var window: NSWindow?
     public var hideOnFocusLoss: Bool
     public var reveal: Reveal
+    /// Called before the window slides away, so the app can leave any state (⌘↩ full screen)
+    /// that should not survive being hidden.
+    public var onWillHide: (() -> Void)?
     /// Overlay size as fractions of the screen's visible area; docked top, centred.
     public var overlayWidth: Double = 0.9 { didSet { if overlayWidth != oldValue { summonedFrame = nil } } }
     public var overlayHeight: Double = 0.6 { didSet { if overlayHeight != oldValue { summonedFrame = nil } } }
@@ -151,6 +154,7 @@ public final class HotkeyWindowToggler {
 
     public func hide() {
         guard let window else { return }
+        onWillHide?()
         isSummoned = false
         Self.logger.notice("hotkey: hide")
         if window.isVisible { summonedFrame = window.frame }

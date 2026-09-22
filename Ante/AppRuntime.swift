@@ -90,6 +90,7 @@ final class AppRuntime {
                                           reveal: Self.reveal(for: workspace.config.hotkey.animation))
         toggler.overlayWidth = workspace.config.hotkey.width
         toggler.overlayHeight = workspace.config.hotkey.height
+        toggler.onWillHide = { [weak self] in self?.windowController?.exitFullScreenIfNeeded() }
         toggler.installGlobalShortcut()
         hotkey = toggler
     }
