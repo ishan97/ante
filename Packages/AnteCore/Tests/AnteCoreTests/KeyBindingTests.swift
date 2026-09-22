@@ -62,5 +62,8 @@ extension KeyBindingTests {
         XCTAssertFalse(try ConfigLoader().parse("[window]\nwidth = 0").window.isFixed, "0 means remember the last size")
         XCTAssertFalse(try ConfigLoader().parse("[window]\nheight = 0").window.isFixed, "either side at 0 is enough")
         XCTAssertFalse(try ConfigLoader().parse("[window]\nwidth = -1").window.isFixed, "negative is treated like 0")
+        XCTAssertEqual(AnteConfig.default.window.fullscreen, .native)
+        XCTAssertEqual(try ConfigLoader().parse("[window]\nfullscreen = \"expand\"").window.fullscreen, .expand)
+        XCTAssertThrowsError(try ConfigLoader().parse("[window]\nfullscreen = \"huge\""))
     }
 }

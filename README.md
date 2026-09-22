@@ -61,7 +61,7 @@ hook (into `~/.claude/settings.json`, backed up; removable) for the definite sig
 | ⌘1–9, ⌘⇧[ ] | jump between sessions |
 | ⌘F | find in scrollback |
 | ⌘K | clear pane |
-| ⌘↩ | macOS full screen (its own Space, like iTerm2); press again to go back. The hotkey hides and shows the app while full screen |
+| ⌘↩ | full screen: its own Space (like iTerm2) or fill the screen in place — Settings → General → Window (`[window] fullscreen = "native"` / `"expand"`); press again to go back. In both styles the hotkey just hides and shows the window |
 | ⌘= / ⌘- / ⌘0 | bigger / smaller / actual text size (Monaco 12 by default, like iTerm2) |
 | ⌘⇧S | sessions board |
 | ⌘⌥S | show / hide the sidebar |

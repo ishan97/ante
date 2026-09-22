@@ -56,10 +56,35 @@ final class MainPanel: NSPanel {
     /// ⌘↩: macOS's own full screen (the window gets its own Space), the way iTerm2's default
     /// works; the next press goes back. While full screen the hotkey hides and unhides the app
     /// instead of moving the window (see HotkeyWindowToggler).
+    /// "Fill the screen in place": the frame to go back to while expanded.
+    var expandedRestoreFrame: NSRect?
+    var isExpanded: Bool { expandedRestoreFrame != nil }
+
+    /// ⌘↩ in the "expand" style: the window covers the whole screen and the menu bar and Dock
+    /// slide away while Ante is in front; the next press restores the frame. The hotkey leaves
+    /// this state alone (it hides and shows the window as it is); closing or quitting ends it.
+    func toggleExpanded() {
+        if let previous = expandedRestoreFrame {
+            expandedRestoreFrame = nil
+            NSApp.presentationOptions = []
+            setFrame(previous, display: true, animate: true)
+        } else if let screen = screen ?? NSScreen.main {
+            expandedRestoreFrame = frame
+            NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
+            setFrame(screen.frame, display: true, animate: true)
+        }
+    }
+
+    func collapseIfExpanded() { if isExpanded { toggleExpanded() } }
+
     /// AppKit ignores `toggleFullScreen` for a window of an inactive app (Ante summoned by the
     /// hotkey stays inactive on purpose), and drops it when asked in the same turn as activation.
     /// So: activate, then toggle on the next turn of the run loop.
     static func toggleFullScreen(_ window: NSWindow) {
+        if let panel = window as? MainPanel, panel.runtime?.config.window.fullscreen == .expand || panel.isExpanded {
+            panel.toggleExpanded()
+            return
+        }
         if !isFullScreen(window) {
             // The hotkey overlay is a "full-screen auxiliary" window on every Space at a raised
             // level; such a window can never become a full-screen Space of its own. Make it an
@@ -76,7 +101,9 @@ final class MainPanel: NSPanel {
         window.toggleFullScreen(nil)
     }
 
-    static func isFullScreen(_ window: NSWindow) -> Bool { window.styleMask.contains(.fullScreen) }
+    static func isFullScreen(_ window: NSWindow) -> Bool {
+        window.styleMask.contains(.fullScreen) || (window as? MainPanel)?.isExpanded == true
+    }
 
     /// `NSWindow.zoom` is a no-op on a panel, so do what it would: fill the screen's usable area,
     /// and put the previous frame back on the next double-click.
@@ -152,6 +179,11 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     func toggleFullScreen() { MainPanel.toggleFullScreen(panel) }
+
+    /// The expanded state is not something to carry into a closed window or the next launch.
+    func collapseIfExpanded() { panel.collapseIfExpanded() }
+    func windowWillClose(_ notification: Notification) { collapseIfExpanded() }
+    func windowWillMiniaturize(_ notification: Notification) { collapseIfExpanded() }
 
     /// The full-screen transition can drop key status; claim it back so ⌘↩ and typing work.
     func windowDidEnterFullScreen(_ notification: Notification) {

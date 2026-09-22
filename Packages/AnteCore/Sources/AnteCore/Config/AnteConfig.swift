@@ -166,6 +166,18 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
     public struct Window: Equatable, Sendable, Decodable {
         public var width: Double = 0.8
         public var height: Double = 0.8
+        /// What ⌘↩ does: macOS full screen on its own Space, or fill the screen in place.
+        public var fullscreen: FullScreenStyle = .native
+
+        public enum FullScreenStyle: String, Sendable, Decodable, CaseIterable {
+            case native, expand
+            public var label: String {
+                switch self {
+                case .native: return "Full screen (its own Space)"
+                case .expand: return "Fill the screen in place"
+                }
+            }
+        }
 
         public init() {}
         public init(width: Double, height: Double) { self.width = width; self.height = height }
@@ -173,12 +185,13 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
         /// True when the window opens at the configured size rather than the remembered one.
         public var isFixed: Bool { width > 0 && height > 0 }
 
-        private enum CodingKeys: String, CodingKey { case width, height }
+        private enum CodingKeys: String, CodingKey { case width, height, fullscreen }
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             width = try c.decodeNumberIfPresent(forKey: .width) ?? width
             height = try c.decodeNumberIfPresent(forKey: .height) ?? height
+            fullscreen = try c.decodeIfPresent(FullScreenStyle.self, forKey: .fullscreen) ?? fullscreen
         }
     }
 

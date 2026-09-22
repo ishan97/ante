@@ -94,11 +94,15 @@ public final class HotkeyWindowToggler {
         guard !isAnimating, let window else { return }
         Self.logger.notice("hotkey: appActive=\(NSApplication.shared.isActive) visible=\(window.isVisible) key=\(window.isKeyWindow)")
         if isNativeFullScreen {
-            // A full-screen Ante lives on its own Space. If it is the app in front, the hotkey
-            // hides it (macOS returns to where you were); otherwise — hidden, or simply on another
-            // Space because you switched away — it brings that Space back. Neither "hidden" nor
-            // "key window" is a reliable signal here; "active app" is.
-            if NSApplication.shared.isActive { hide() } else { show() }
+            // A full-screen Ante lives on its own Space. Hidden → bring it back (a hide that
+            // landed mid-transition can leave the app hidden *and* active, so hidden is checked
+            // first). In front → hide it, and macOS returns to where you were. On another Space
+            // because you switched away → bring it back. Presses during the ~0.5 s Space switch
+            // are dropped: acting on a half-finished transition is what used to wedge it.
+            let now = Date()
+            guard now.timeIntervalSince(lastFullScreenToggle) > 0.6 else { return }
+            lastFullScreenToggle = now
+            if NSApplication.shared.isHidden || !NSApplication.shared.isActive { show() } else { hide() }
             return
         }
         if Self.shouldHide(windowVisible: window.isVisible, windowKey: window.isKeyWindow) {
@@ -111,6 +115,7 @@ public final class HotkeyWindowToggler {
     /// A window in macOS full screen lives on its own Space; the hotkey then hides and unhides
     /// the app (macOS switches Spaces for us) and never touches the frame or level.
     private var isNativeFullScreen: Bool { window?.styleMask.contains(.fullScreen) ?? false }
+    private var lastFullScreenToggle = Date.distantPast
 
     public func show() {
         guard let window else { return }
