@@ -3,6 +3,14 @@
     <channel>
         <title>Ante</title>
         <item>
+            <title>1.2.0</title>
+            <pubDate>Tue, 22 Sep 2026 18:07:00 +0200</pubDate>
+            <sparkle:version>135</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/ishan97/ante/releases/download/v1.2.0/Ante.dmg" length="7254555" type="application/octet-stream" sparkle:edSignature="gGNz6z+z+fhE5+c0TW02SXflqIvhLPzZ1ULoBpr0AOasNGyyE1sXPPFWxkYJV+IkKbMT8MxKZoAvhRcheQFeDQ=="/>
+        </item>
+        <item>
             <title>1.1.0</title>
             <pubDate>Tue, 22 Sep 2026 17:49:27 +0200</pubDate>
             <sparkle:version>132</sparkle:version>
