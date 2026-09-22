@@ -128,9 +128,8 @@ final class WorkspaceRuntimeTests: XCTestCase {
         runtime.store.renameSession(session.id, to: "Deploy notes")
         runtime.prepareForQuit()
         XCTAssertTrue(StateStore(paths: paths).load().state.sessions.isEmpty, "sessions leave the sidebar on quit")
-        let past = AnteSessionHistoryStore(paths: paths).all().first
-        XCTAssertEqual(past?.name, "Deploy notes")
-        XCTAssertEqual(past?.workingDirectory, "/private/tmp", "…but land in History with their folder")
+        XCTAssertTrue(AnteSessionHistoryStore(paths: paths).all().isEmpty,
+                      "a plain shell, even renamed and in another folder, is not History: nothing in it can be resumed")
 
         let relaunched = makeRuntime()
         defer { relaunched.prepareForQuit() }

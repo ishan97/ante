@@ -101,17 +101,36 @@ final class SessionBoardTests: XCTestCase {
         XCTAssertEqual(runtime.store.state.focusedSessionID, b.id)
     }
 
-    func testClosingASessionRecordsHistory() {
-        let (runtime, root) = makeRuntime(script: "sleep 30")
+    func testClosingAnAgentSessionRecordsHistoryButAPlainShellDoesNot() {
+        // `exec -a` names the process "claude", which is what the foreground probe classifies on.
+        let (runtime, root) = makeRuntime(script: "exec -a claude /bin/sleep 30")
         defer { runtime.prepareForQuit(); try? FileManager.default.removeItem(at: root) }
         let project = runtime.store.state.projects[0]
         let session = runtime.newSession(in: project.id)
+        runtime.open(session: session.id)
         runtime.store.renameSession(session.id, to: "deploy")
+        let pane = runtime.focusedPaneID!
+        // The 2 s foreground probe runs on the main run loop.
+        let deadline = Date().addingTimeInterval(6)
+        while Date() < deadline, runtime.controller(for: pane).agent != .claude {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertEqual(runtime.controller(for: pane).agent, .claude)
         runtime.closeSession(session.id)
         let history = AnteSessionHistoryStore(paths: runtime.paths).all()
         XCTAssertEqual(history.first?.name, "deploy")
         XCTAssertEqual(history.first?.projectPath, project.rootDirectory.path)
+        XCTAssertEqual(history.first?.agent, .claude)
         XCTAssertEqual(history.first?.asPastSession.resumeCommand, nil)
+
+        // A plain shell session, even renamed, leaves nothing behind: there is nothing to resume.
+        let (shellRuntime, shellRoot) = makeRuntime(script: "sleep 30")
+        defer { shellRuntime.prepareForQuit(); try? FileManager.default.removeItem(at: shellRoot) }
+        let shell = shellRuntime.newSession(in: shellRuntime.store.state.projects[0].id)
+        shellRuntime.open(session: shell.id)
+        shellRuntime.store.renameSession(shell.id, to: "notes")
+        shellRuntime.closeSession(shell.id)
+        XCTAssertTrue(AnteSessionHistoryStore(paths: shellRuntime.paths).all().isEmpty)
     }
 
     func testBoardCardsReflectLivePanes() async {

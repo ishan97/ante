@@ -30,7 +30,7 @@ final class AgentsTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let store = AnteSessionHistoryStore(paths: AppPaths(root: root, configRoot: root))
         for i in 0..<(AnteSessionHistoryStore.capacity + 5) {
-            try store.append(ClosedSession(name: "s\(i)", workingDirectory: "/tmp", projectPath: "/tmp", lastCommand: nil, agent: .shell,
+            try store.append(ClosedSession(name: "s\(i)", workingDirectory: "/tmp", projectPath: "/tmp", lastCommand: nil, agent: .claude,
                                            closedAt: Date(timeIntervalSince1970: Double(i))))
         }
         let all = store.all()

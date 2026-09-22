@@ -40,8 +40,9 @@ Aider, Gemini, Goose, Amp, OpenCode, Cursor, Pi, or a plain shell/command) and h
 in that state. Below the board, an **Activity** strip shows a year of prompts per day, with streaks,
 read from the agents' own history files. **History** lists past sessions straight from each agent's
 storage — Claude Code (`~/.claude/projects`), Codex (`~/.codex/sessions` and `archived_sessions`),
-OpenCode (`~/.local/share/opencode/opencode.db`), Pi (`~/.pi/agent/sessions`) — plus sessions
-closed in Ante; click one to open a pane in that project and resume it (`claude --resume …`,
+OpenCode (`~/.local/share/opencode/opencode.db`), Pi (`~/.pi/agent/sessions`) — plus agent
+sessions closed in Ante (plain shells have nothing to resume, so they are not kept); click one to
+open a pane in that project and resume it (`claude --resume …`,
 `codex resume …`, `opencode --session …`, `pi --session …`).
 
 "Waiting for you" is definite when an agent hook says so and probable when an agent has been

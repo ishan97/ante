@@ -258,19 +258,17 @@ public final class WorkspaceRuntime {
                              agent: controller?.agent ?? .shell)
     }
 
-    /// Untouched default sessions (never opened, or opened and never used) are not history.
+    /// Only sessions with an agent in the foreground go to History: an agent session can be
+    /// picked up again (its own history has the resume command, and the entry keeps the project
+    /// folder), whereas a closed shell or a finished command has nothing to come back to.
     private func isWorthRemembering(_ session: Session) -> Bool {
-        if session.isUserNamed || session.lastCommand != nil { return true }
-        let root = store.state.projects.first { $0.id == session.projectID }?.rootDirectory.standardizedFileURL.path
-        if session.workingDirectory.standardizedFileURL.path != root { return true }
         guard let controller = primaryController(for: session.id) else { return false }
-        // A shell's own startup reports an exit code; only a command the user started counts.
-        return controller.commandsRun > 0 || controller.agent.isAgent
-            || controller.currentDirectory?.standardizedFileURL.path != root
+        return controller.agent.isAgent
     }
 
     private func recordHistory(for id: SessionID) {
-        guard let session = store.state.sessions.first(where: { $0.id == id }), !session.isScratch else { return }
+        guard let session = store.state.sessions.first(where: { $0.id == id }), !session.isScratch,
+              isWorthRemembering(session) else { return }
         do { try historyStore.append(closedSession(for: session)) } catch {
             Self.logger.error("history append failed: \(error.localizedDescription, privacy: .public)")
         }

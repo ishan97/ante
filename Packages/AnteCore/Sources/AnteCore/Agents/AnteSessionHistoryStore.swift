@@ -36,10 +36,12 @@ public struct AnteSessionHistoryStore: Sendable {
         self.file = paths.historyFile
     }
 
+    /// Newest first. Plain shells and one-off commands are left out even if an older version
+    /// of Ante filed them: there is nothing to resume in a closed shell.
     public func all() -> [ClosedSession] {
         guard let data = try? Data(contentsOf: file),
               let list = try? JSONDecoder.anteHistory.decode([ClosedSession].self, from: data) else { return [] }
-        return list.sorted { $0.closedAt > $1.closedAt }
+        return list.filter { $0.agent.isAgent }.sorted { $0.closedAt > $1.closedAt }
     }
 
     public func append(_ session: ClosedSession) throws {
@@ -48,6 +50,7 @@ public struct AnteSessionHistoryStore: Sendable {
 
     /// One read and one atomic write however many sessions close at once (quit).
     public func append(contentsOf sessions: [ClosedSession]) throws {
+        let sessions = sessions.filter { $0.agent.isAgent }
         guard !sessions.isEmpty else { return }
         var list = all()
         list.insert(contentsOf: sessions.sorted { $0.closedAt > $1.closedAt }, at: 0)
