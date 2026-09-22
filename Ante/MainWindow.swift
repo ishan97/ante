@@ -136,11 +136,25 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     /// Full screen (⌘↩) is left alone too: the new size is picked up when it is toggled off.
     func apply(windowConfig: AnteConfig.Window, animate: Bool) {
         guard windowConfig.isFixed, !MainPanel.isFullScreen(panel),
-              let visible = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
+              let visible = Self.screen(showing: panel.frame)?.visibleFrame else { return }
         let frame = WindowSizing.frame(fraction: windowConfig.width, windowConfig.height, in: visible,
                                        previous: panel.frame, minSize: panel.minSize)
         if frame != panel.frame { panel.setFrame(frame, display: true, animate: animate) }
     }
 
     func toggleFullScreen() { MainPanel.toggleFullScreen(panel) }
+
+    /// The screen that shows most of `frame`. `NSWindow.screen` is nil before the window is
+    /// ordered in, and `NSScreen.main` is whichever display has the keyboard, which is the wrong
+    /// one to size against when the remembered frame lives on the other display.
+    static func screen(showing frame: NSRect) -> NSScreen? {
+        NSScreen.screens.max { a, b in
+            a.frame.intersection(frame).area < b.frame.intersection(frame).area
+        } ?? NSScreen.main
+    }
+}
+
+private extension NSRect {
+    /// Zero for null and empty rects, so a screen that does not touch the frame never wins.
+    var area: CGFloat { isNull || isEmpty ? 0 : width * height }
 }
