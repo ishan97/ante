@@ -60,9 +60,9 @@ final class MainPanel: NSPanel {
     var expandedRestoreFrame: NSRect?
     var isExpanded: Bool { expandedRestoreFrame != nil }
 
-    /// ⌘↩ in the "expand" style: the window covers the whole screen and the menu bar and Dock
-    /// slide away while Ante is in front; the next press restores the frame. The hotkey leaves
-    /// this state alone (it hides and shows the window as it is); closing or quitting ends it.
+    /// ⌘↩: the window covers the whole screen and the menu bar and Dock slide away while Ante is
+    /// in front; the next press restores the frame. The hotkey leaves this state alone (it hides
+    /// and shows the window as it is); closing or quitting ends it.
     func toggleExpanded() {
         if let previous = expandedRestoreFrame {
             expandedRestoreFrame = nil
@@ -70,40 +70,27 @@ final class MainPanel: NSPanel {
             setFrame(previous, display: true, animate: true)
         } else if let screen = screen ?? NSScreen.main {
             expandedRestoreFrame = frame
+            // The menu bar and Dock only auto-hide for the active app; summoned by the hotkey,
+            // Ante is not active, so take activation along with the whole screen.
+            NSApp.activate(ignoringOtherApps: true)
+            makeKeyAndOrderFront(nil)
             NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
             setFrame(screen.frame, display: true, animate: true)
         }
     }
 
+    /// AppKit keeps a window below the menu bar; while expanded the frame is the whole screen.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        isExpanded ? frameRect : super.constrainFrameRect(frameRect, to: screen)
+    }
+
     func collapseIfExpanded() { if isExpanded { toggleExpanded() } }
 
-    /// AppKit ignores `toggleFullScreen` for a window of an inactive app (Ante summoned by the
-    /// hotkey stays inactive on purpose), and drops it when asked in the same turn as activation.
-    /// So: activate, then toggle on the next turn of the run loop.
-    static func toggleFullScreen(_ window: NSWindow) {
-        if let panel = window as? MainPanel, panel.runtime?.config.window.fullscreen == .expand || panel.isExpanded {
-            panel.toggleExpanded()
-            return
-        }
-        if !isFullScreen(window) {
-            // The hotkey overlay is a "full-screen auxiliary" window on every Space at a raised
-            // level; such a window can never become a full-screen Space of its own. Make it an
-            // ordinary primary window again first (the next summon sets the overlay behaviour back).
-            window.collectionBehavior = [.managed, .fullScreenPrimary]
-            window.level = .normal
-            if !NSApp.isActive {
-                NSApp.activate(ignoringOtherApps: true)
-                window.makeKeyAndOrderFront(nil)
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(60)) { window.toggleFullScreen(nil) }
-                return
-            }
-        }
-        window.toggleFullScreen(nil)
-    }
+    /// ⌘↩: fill the screen in place (see `toggleExpanded`). macOS's own full screen is off for
+    /// this window (`.fullScreenNone`): a separate Space and the hotkey overlay never agreed.
+    static func toggleFullScreen(_ window: NSWindow) { (window as? MainPanel)?.toggleExpanded() }
 
-    static func isFullScreen(_ window: NSWindow) -> Bool {
-        window.styleMask.contains(.fullScreen) || (window as? MainPanel)?.isExpanded == true
-    }
+    static func isFullScreen(_ window: NSWindow) -> Bool { (window as? MainPanel)?.isExpanded == true }
 
     /// `NSWindow.zoom` is a no-op on a panel, so do what it would: fill the screen's usable area,
     /// and put the previous frame back on the next double-click.
@@ -148,7 +135,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         panel.isReleasedWhenClosed = false     // the red button hides; the hotkey or Dock brings it back
         panel.becomesKeyOnlyIfNeeded = false
         panel.minSize = NSSize(width: 720, height: 420)
-        panel.collectionBehavior = [.managed, .fullScreenPrimary]
+        panel.collectionBehavior = [.managed, .fullScreenNone]
         panel.animationBehavior = .none        // the hotkey does its own reveal
         panel.delegate = self
         panel.runtime = runtime.workspace
@@ -185,11 +172,6 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) { collapseIfExpanded() }
     func windowWillMiniaturize(_ notification: Notification) { collapseIfExpanded() }
 
-    /// The full-screen transition can drop key status; claim it back so ⌘↩ and typing work.
-    func windowDidEnterFullScreen(_ notification: Notification) {
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-    }
 
     /// The screen that shows most of `frame`. `NSWindow.screen` is nil before the window is
     /// ordered in, and `NSScreen.main` is whichever display has the keyboard, which is the wrong

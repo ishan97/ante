@@ -69,11 +69,6 @@ public struct SettingsView: View {
                 }
             }
             Section("Window") {
-                Picker("⌘↩", selection: $model.fullScreenStyle) {
-                    ForEach(AnteConfig.Window.FullScreenStyle.allCases, id: \.self) { Text($0.label).tag($0) }
-                }
-                Text("Either way the hotkey hides and shows the window as it is.")
-                    .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
                 Toggle("Open at a fixed size", isOn: $model.windowSizeIsFixed)
                 if model.windowSizeIsFixed {
                     HStack {

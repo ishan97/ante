@@ -113,11 +113,6 @@ public final class SettingsModel {
         get { pendingDouble("window.height") ?? config.window.height }
         set { write("window", "height", .double((newValue * 100).rounded() / 100)) }
     }
-    /// What ⌘↩ does.
-    public var fullScreenStyle: AnteConfig.Window.FullScreenStyle {
-        get { pendingString("window.fullscreen").flatMap(AnteConfig.Window.FullScreenStyle.init(rawValue:)) ?? config.window.fullscreen }
-        set { write("window", "fullscreen", .string(newValue.rawValue)) }
-    }
     /// Off means both are 0: the window reopens at whatever size it was closed at.
     public var windowSizeIsFixed: Bool {
         get { windowWidth > 0 && windowHeight > 0 }

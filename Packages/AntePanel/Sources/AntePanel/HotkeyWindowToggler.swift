@@ -93,18 +93,6 @@ public final class HotkeyWindowToggler {
     public func toggle() {
         guard !isAnimating, let window else { return }
         Self.logger.notice("hotkey: appActive=\(NSApplication.shared.isActive) visible=\(window.isVisible) key=\(window.isKeyWindow)")
-        if isNativeFullScreen {
-            // A full-screen Ante lives on its own Space. Hidden → bring it back (a hide that
-            // landed mid-transition can leave the app hidden *and* active, so hidden is checked
-            // first). In front → hide it, and macOS returns to where you were. On another Space
-            // because you switched away → bring it back. Presses during the ~0.5 s Space switch
-            // are dropped: acting on a half-finished transition is what used to wedge it.
-            let now = Date()
-            guard now.timeIntervalSince(lastFullScreenToggle) > 0.6 else { return }
-            lastFullScreenToggle = now
-            if NSApplication.shared.isHidden || !NSApplication.shared.isActive { show() } else { hide() }
-            return
-        }
         if Self.shouldHide(windowVisible: window.isVisible, windowKey: window.isKeyWindow) {
             hide()
         } else {
@@ -112,23 +100,12 @@ public final class HotkeyWindowToggler {
         }
     }
 
-    /// A window in macOS full screen lives on its own Space; the hotkey then hides and unhides
-    /// the app (macOS switches Spaces for us) and never touches the frame or level.
-    private var isNativeFullScreen: Bool { window?.styleMask.contains(.fullScreen) ?? false }
-    private var lastFullScreenToggle = Date.distantPast
 
     public func show() {
         guard let window else { return }
         isSummoned = true
         if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != ProcessInfo.processInfo.processIdentifier {
             previousApp = front
-        }
-        if isNativeFullScreen {
-            Self.logger.notice("hotkey: show (full screen)")
-            NSApplication.shared.unhide(nil)
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            window.makeKeyAndOrderFront(nil)
-            return
         }
         // If Ante was hidden (⌘H) its windows stay ordered out until it unhides — without activating.
         NSApplication.shared.unhideWithoutActivation()
@@ -176,11 +153,6 @@ public final class HotkeyWindowToggler {
     public func hide() {
         guard let window else { return }
         isSummoned = false
-        if isNativeFullScreen {
-            Self.logger.notice("hotkey: hide (full screen)")
-            NSApplication.shared.hide(nil)   // back to the Space and app you came from
-            return
-        }
         Self.logger.notice("hotkey: hide")
         if window.isVisible { summonedFrame = window.frame }
         guard window.isVisible, reveal != .none, !isAnimating else {
