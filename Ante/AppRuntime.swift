@@ -70,7 +70,8 @@ final class AppRuntime {
                 self.windowController?.apply(windowConfig: result.config.window, animate: true)
             }
             // A new overlay size would be applied by the next summon under a still-filled window.
-            if result.config.hotkey.width != self.hotkey?.overlayWidth || result.config.hotkey.height != self.hotkey?.overlayHeight {
+            if let hotkey = self.hotkey,
+               (hotkey.overlayWidth, hotkey.overlayHeight) != (result.config.hotkey.width, result.config.hotkey.height) {
                 self.windowController?.collapseIfExpanded()
             }
             if case let .failed(_, error) = result { self.workspace.configError = error } else { self.workspace.configError = nil }

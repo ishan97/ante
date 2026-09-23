@@ -84,7 +84,7 @@ final class MainPanel: NSPanel {
     func collapseIfExpanded(animate: Bool = true) { if isExpanded { toggleExpanded(animate: animate) } }
 
     /// The green button. `NSWindow.zoom` is a no-op on a panel, so do the zoom by hand.
-    override func zoom(_ sender: Any?) { Self.toggleZoom(self) }
+    override func zoom(_ sender: Any?) { if !isExpanded { Self.toggleZoom(self) } }
 
     /// A screen-sized frame is not worth remembering: a crash while filled would otherwise
     /// relaunch screen-sized.
