@@ -100,7 +100,6 @@ public final class HotkeyWindowToggler {
         }
     }
 
-
     public func show() {
         guard let window else { return }
         isSummoned = true

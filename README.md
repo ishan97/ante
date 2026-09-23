@@ -41,9 +41,9 @@ in that state. Below the board, an **Activity** strip shows a year of prompts pe
 read from the agents' own history files. **History** lists past sessions straight from each agent's
 storage — Claude Code (`~/.claude/projects`), Codex (`~/.codex/sessions` and `archived_sessions`),
 OpenCode (`~/.local/share/opencode/opencode.db`), Pi (`~/.pi/agent/sessions`) — plus agent
-sessions closed in Ante (plain shells have nothing to resume, so they are not kept); click one to
-open a pane in that project and resume it (`claude --resume …`,
-`codex resume …`, `opencode --session …`, `pi --session …`).
+sessions closed in Ante (plain shells have nothing to resume, so they are not kept). Click an
+agent's own entry to open a pane in that project and resume it (`claude --resume …`,
+`codex resume …`, `opencode --session …`, `pi --session …`); an Ante entry opens a pane in that folder.
 
 "Waiting for you" is definite when an agent hook says so and probable when an agent has been
 quiet for `[agents] quiet_seconds` (default 8). The moment a session moves into that column Ante
@@ -61,7 +61,7 @@ hook (into `~/.claude/settings.json`, backed up; removable) for the definite sig
 | ⌘1–9, ⌘⇧[ ] | jump between sessions |
 | ⌘F | find in scrollback |
 | ⌘K | clear pane |
-| ⌘↩ | fill the screen (menu bar and Dock slide away); press again to go back. The hotkey hides and shows the window as it is |
+| ⌘↩ | fill screen (menu bar and Dock slide away); press again to go back. The hotkey hides and shows the window as it is |
 | ⌘= / ⌘- / ⌘0 | bigger / smaller / actual text size (Monaco 12 by default, like iTerm2) |
 | ⌘⇧S | sessions board |
 | ⌘⌥S | show / hide the sidebar |

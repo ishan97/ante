@@ -140,7 +140,7 @@ extension AnteConfig {
              ("split_left", "Split left", splitLeft), ("split_up", "Split up", splitUp),
              ("toggle_sidebar", "Toggle sidebar", toggleSidebar), ("sessions_board", "Sessions", sessionsBoard),
              ("insert_file", "Insert file path…", insertFile), ("scratchpad", "To-do & notes", scratchpad),
-             ("toggle_fullscreen", "Full screen", toggleFullscreen), ("font_bigger", "Bigger text", fontBigger),
+             ("toggle_fullscreen", "Fill screen", toggleFullscreen), ("font_bigger", "Bigger text", fontBigger),
              ("font_smaller", "Smaller text", fontSmaller), ("font_reset", "Actual text size", fontReset)]
         }
     }

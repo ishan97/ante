@@ -23,7 +23,7 @@ public struct ClosedSession: Codable, Hashable, Sendable, Identifiable {
     }
 
     public var asPastSession: PastSession {
-        PastSession(id: "ante-\(id)", agent: agent == .shell ? .shell : agent, title: name, projectPath: workingDirectory,
+        PastSession(id: "ante-\(id)", agent: agent, title: name, projectPath: workingDirectory,
                     createdAt: closedAt, modifiedAt: closedAt, detail: lastCommand, resumeCommand: nil)
     }
 }

@@ -69,6 +69,10 @@ final class AppRuntime {
             if result.config.window != windowBefore {
                 self.windowController?.apply(windowConfig: result.config.window, animate: true)
             }
+            // A new overlay size would be applied by the next summon under a still-filled window.
+            if result.config.hotkey.width != self.hotkey?.overlayWidth || result.config.hotkey.height != self.hotkey?.overlayHeight {
+                self.windowController?.collapseIfExpanded()
+            }
             if case let .failed(_, error) = result { self.workspace.configError = error } else { self.workspace.configError = nil }
             self.hotkey?.hideOnFocusLoss = result.config.hotkey.hideOnFocusLoss
             self.hotkey?.reveal = Self.reveal(for: result.config.hotkey.animation)

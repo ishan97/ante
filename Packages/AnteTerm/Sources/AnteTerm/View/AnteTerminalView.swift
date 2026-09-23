@@ -34,7 +34,6 @@ public final class AnteTerminalView: LocalProcessTerminalView {
     /// Called on the main thread when the view (re)joins a window. Programs redraw on attach and
     /// resize, so the output that follows says nothing about whether they are busy.
     public var onAttached: (() -> Void)?
-    /// Ask before pasting text containing a newline (the classic curl-pipe-sh defence).
     /// Set by the host when this pane is the focused one. The view then takes the keyboard as
     /// soon as it has a window, and on any click — unless the user is typing in a text field.
     public var claimsKeyboardWhenFocused = false {

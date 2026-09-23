@@ -28,7 +28,7 @@ struct AnteApp: App {
     }
 }
 
-/// View menu: iTerm-style full screen and text size, all rebindable under `[keys]`.
+/// View menu: fill screen and text size, all rebindable under `[keys]`.
 struct ViewCommands: Commands {
     let runtime: WorkspaceRuntime
     let settings: SettingsModel
@@ -36,7 +36,7 @@ struct ViewCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
-            Button("Toggle Full Screen") { toggleFullScreen() }
+            Button("Fill Screen") { toggleFullScreen() }
                 .keyboardShortcut(runtime.config.keys.toggleFullscreen.shortcut)
             Divider()
             Button("Bigger Text") { settings.stepFontSize(by: 1) }

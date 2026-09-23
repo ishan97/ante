@@ -16,6 +16,8 @@ What Ante does, so you know what is in scope:
 - Its only network traffic is the daily update check (an HTTPS fetch of `appcast.xml` from this
   repository), which Settings → General → Updates turns off, and the release download from
   GitHub, which only ever happens after you click Install.
+- It does not confirm pastes; a shell with bracketed paste (zsh, bash 4.4+, fish) receives a
+  multi-line paste as one block.
 - Everything it shows from a terminal, an agent's session file, or a hook is treated as
   untrusted: control characters are stripped, lengths are capped, and nothing from those
   sources is executed. `docs/security-review.md` lists the checks.

@@ -79,8 +79,9 @@ public final class WorkspaceRuntime {
             let home = store.addProject(rootDirectory: FileManager.default.homeDirectoryForCurrentUser)
             store.renameProject(home.id, to: "Home")
         }
-        // A launch starts clean. Sessions normally go to History on quit; after a crash or a
-        // forced quit they are still here, so file them now, then open one fresh session.
+        // A launch starts clean. Sessions go to History on quit; anything a crash or forced quit
+        // left behind is dropped here (with no live pane its agent is unknown, and an agent
+        // session is in the agent's own history anyway), then one fresh session opens.
         fileSessionsIntoHistory()
         if let project = store.state.orderedProjects.first {
             store.addSession(in: project.id)
@@ -237,7 +238,6 @@ public final class WorkspaceRuntime {
         }
     }
 
-    /// Remembers a closing session (not scratch) so History can reopen it.
     /// The controller that stands for a session: the focused pane's if it belongs to the session,
     /// else the first pane's.
     private func primaryController(for id: SessionID) -> TerminalSessionController? {
@@ -272,8 +272,8 @@ public final class WorkspaceRuntime {
         }
     }
 
-    /// Moves every visible session into History in one write and removes them from the sidebar.
-    /// Called on quit, and at launch for anything a crash left behind.
+    /// Moves every visible agent session into History in one write and removes every session
+    /// from the sidebar. Called on quit, and at launch to clear anything a crash left behind.
     private func fileSessionsIntoHistory() {
         let sessions = store.allVisibleSessions
         let closed = sessions.filter(isWorthRemembering).map(closedSession(for:))

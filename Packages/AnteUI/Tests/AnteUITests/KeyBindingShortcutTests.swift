@@ -15,9 +15,9 @@ final class KeyBindingShortcutTests: XCTestCase {
 }
 
 extension KeyBindingShortcutTests {
-    private func key(_ code: UInt16, _ chars: String, _ flags: NSEvent.ModifierFlags) -> NSEvent {
+    private func key(_ code: UInt16, _ chars: String, _ flags: NSEvent.ModifierFlags, unshifted: String? = nil, repeating: Bool = false) -> NSEvent {
         NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0, context: nil,
-                         characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)!
+                         characters: chars, charactersIgnoringModifiers: unshifted ?? chars, isARepeat: repeating, keyCode: code)!
     }
 
     func testBindingsMatchRealKeyEvents() throws {
@@ -32,5 +32,11 @@ extension KeyBindingShortcutTests {
         XCTAssertFalse(bigger.matches(key(24, "=", [.command, .option])))
         let up = try KeyBinding.parse("ctrl+alt+up")
         XCTAssertTrue(up.matches(key(126, "\u{F700}", [.control, .option])))
+        XCTAssertTrue(up.matches(key(126, "\u{F700}", [.control, .option, .numericPad, .function])), "arrow keys carry the keypad and fn flags")
+        XCTAssertTrue(fullScreen.matches(key(36, "\r", [.command, .function])), "fn is not a modifier")
+        XCTAssertFalse(fullScreen.matches(key(36, "\r", [.command], repeating: true)), "auto-repeat never toggles")
+        let clear = try KeyBinding.parse("cmd+k")
+        XCTAssertTrue(clear.matches(key(40, "k", [.command], unshifted: "л")), "a non-Latin layout still reports the Latin character")
+        XCTAssertFalse(bigger.matches(key(24, "+", [.command, .shift], unshifted: "=")), "shift makes it a different chord")
     }
 }
