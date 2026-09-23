@@ -138,7 +138,6 @@ public final class WorkspaceRuntime {
         for controller in controllers.values {
             if appearanceChanged { controller.apply(appearance) }
             if terminalOpacity != oldOpacity { controller.setBackgroundOpacity(terminalOpacity) }
-            controller.view.confirmMultilinePaste = newConfig.security.confirmMultilinePaste
         }
     }
 
@@ -191,7 +190,6 @@ public final class WorkspaceRuntime {
         let controller = TerminalSessionController(sessionID: session, launch: launch, workingDirectory: directory, bus: bus)
         controller.apply(appearance)
         controller.setBackgroundOpacity(terminalOpacity)
-        controller.view.confirmMultilinePaste = config.security.confirmMultilinePaste
         controller.view.onOpenLink = { [weak self] match in self?.openLink(match) }
         // Claude Code names its session in the window title; show that name in the sidebar
         // unless the user has named the session themselves.

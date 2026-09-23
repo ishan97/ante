@@ -76,10 +76,8 @@ final class ConfigEditorTests: XCTestCase {
     func testNewDefaults() {
         let d = AnteConfig.default
         XCTAssertTrue(d.shell.integration)
-        XCTAssertTrue(d.security.confirmMultilinePaste)
-        let parsed = try? ConfigLoader().parse("[shell]\nintegration = false\n[security]\nconfirm_multiline_paste = false\n[scrollback]\npersist = false   # retired key, still tolerated")
+        let parsed = try? ConfigLoader().parse("[shell]\nintegration = false\n[security]\nconfirm_multiline_paste = false\n[scrollback]\npersist = false   # retired keys, still tolerated")
         XCTAssertEqual(parsed?.shell.integration, false)
-        XCTAssertEqual(parsed?.security.confirmMultilinePaste, false)
-        XCTAssertNotNil(parsed, "a retired [scrollback] table does not break the config")
+        XCTAssertNotNil(parsed, "retired [security] and [scrollback] tables do not break the config")
     }
 }

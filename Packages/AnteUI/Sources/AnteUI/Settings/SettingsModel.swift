@@ -243,10 +243,6 @@ public final class SettingsModel {
         get { config.shell.integration }
         set { write("shell", "integration", .bool(newValue)) }
     }
-    public var confirmMultilinePaste: Bool {
-        get { config.security.confirmMultilinePaste }
-        set { write("security", "confirm_multiline_paste", .bool(newValue)) }
-    }
 
     public var keyBindings: [(key: String, label: String, binding: KeyBinding)] { config.keys.all }
 

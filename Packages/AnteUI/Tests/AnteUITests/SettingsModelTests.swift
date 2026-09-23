@@ -15,7 +15,6 @@ final class SettingsModelTests: XCTestCase {
         })
         let model = SettingsModel(runtime: runtime)
         model.fontSize = 17
-        model.confirmMultilinePaste = false
         model.themeName = "one-dark"
         model.accentHex = "6ea8ff"
         XCTAssertEqual(model.accentHex, "#6EA8FF")
@@ -27,7 +26,6 @@ final class SettingsModelTests: XCTestCase {
         model.flushPendingWrites()
         let text = try String(contentsOf: paths.configFile, encoding: .utf8)
         XCTAssertTrue(text.contains("[font]\nsize = 17"))
-        XCTAssertTrue(text.contains("confirm_multiline_paste = false"))
         XCTAssertTrue(text.contains("name = \"one-dark\""))
         XCTAssertTrue(text.contains("accent = \"#6EA8FF\""), text)
         XCTAssertTrue(text.contains("background = \"#101418\""), text)

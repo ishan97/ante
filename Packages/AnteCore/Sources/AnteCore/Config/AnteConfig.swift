@@ -156,7 +156,6 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
     public var wallpaper = Wallpaper()
     public var hotkey = Hotkey()
     public var shell = Shell()
-    public var security = Security()
     public var keys = Keys()
     public var cursor = Cursor()
     public var agents = Agents()
@@ -185,7 +184,7 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
 
     public static let `default` = AnteConfig()
 
-    private enum CodingKeys: String, CodingKey { case font, window, theme, wallpaper, hotkey, shell, security, keys, cursor, agents }
+    private enum CodingKeys: String, CodingKey { case font, window, theme, wallpaper, hotkey, shell, keys, cursor, agents }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -195,7 +194,6 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
         wallpaper = try c.decodeIfPresent(Wallpaper.self, forKey: .wallpaper) ?? wallpaper
         hotkey = try c.decodeIfPresent(Hotkey.self, forKey: .hotkey) ?? hotkey
         shell = try c.decodeIfPresent(Shell.self, forKey: .shell) ?? shell
-        security = try c.decodeIfPresent(Security.self, forKey: .security) ?? security
         keys = try c.decodeIfPresent(Keys.self, forKey: .keys) ?? keys
         cursor = try c.decodeIfPresent(Cursor.self, forKey: .cursor) ?? cursor
         agents = try c.decodeIfPresent(Agents.self, forKey: .agents) ?? agents

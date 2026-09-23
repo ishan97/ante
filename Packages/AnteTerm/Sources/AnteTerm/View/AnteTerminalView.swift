@@ -35,7 +35,6 @@ public final class AnteTerminalView: LocalProcessTerminalView {
     /// resize, so the output that follows says nothing about whether they are busy.
     public var onAttached: (() -> Void)?
     /// Ask before pasting text containing a newline (the classic curl-pipe-sh defence).
-    public var confirmMultilinePaste = true
     /// Set by the host when this pane is the focused one. The view then takes the keyboard as
     /// soon as it has a window, and on any click — unless the user is typing in a text field.
     public var claimsKeyboardWhenFocused = false {
@@ -217,26 +216,9 @@ public final class AnteTerminalView: LocalProcessTerminalView {
 
     // MARK: - Paste
 
+    /// A paste is user input like any keystroke (it answers a waiting agent); no confirmation,
+    /// bracketed paste is SwiftTerm's default so the shell sees it as one block.
     public override func paste(_ sender: Any) {
-        guard confirmMultilinePaste,
-              let text = NSPasteboard.general.string(forType: .string),
-              text.contains(where: { $0 == "\n" || $0 == "\r" }) else {
-            superPaste(sender)
-            return
-        }
-        let alert = NSAlert()
-        alert.messageText = "Paste \(text.split(whereSeparator: \.isNewline).count) lines?"
-        alert.informativeText = "The clipboard contains multiple lines. Pasting runs each line as it is entered.\n\n" + String(text.prefix(400))
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Paste")
-        alert.addButton(withTitle: "Cancel")
-        guard let window else { return }
-        alert.beginSheetModal(for: window) { [weak self] response in
-            if response == .alertFirstButtonReturn { self?.superPaste(sender) }
-        }
-    }
-
-    private func superPaste(_ sender: Any) {
         onUserInput?()
         super.paste(sender)
     }

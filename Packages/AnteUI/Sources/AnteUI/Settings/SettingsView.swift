@@ -265,10 +265,10 @@ public struct SettingsView: View {
 
     private var privacy: some View {
         Form {
-            Toggle("Confirm before pasting multiple lines", isOn: $model.confirmMultilinePaste)
-            Text("Quitting closes every session into History (name, folder and last command only — never the screen contents). Each launch starts with a fresh session.")
+            Text("Quitting closes every agent session into History (name, folder and program only — never the screen contents). Each launch starts with a fresh session.")
                 .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
-            Text("Ante makes no network connections.").font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+            Text("Ante's only network traffic is the daily update check (General → Updates); nothing you type or see leaves this Mac.")
+                .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
         }
         .formStyle(.grouped)
     }
