@@ -51,6 +51,22 @@ posts a macOS notification (click it to jump to the session) and plays the sound
 Settings → Agents (`[agents] notify`, `notify_sound`); the Dock icon counts waiting sessions. Settings → Agents can install the Claude Code
 hook (into `~/.claude/settings.json`, backed up; removable) for the definite signal.
 
+## Tokens
+
+The flame in the toolbar shows how many tokens your agents used in the last 24 hours, all of them
+together. Click it for 7, 30, 60 and 90 days, 6 months and a year, each split by agent, by model
+and into input, output and cache. The numbers are added up from the agents' own logs on this Mac —
+Claude Code transcripts, Codex rollouts, OpenCode's database, Pi sessions and Gemini CLI chats — read
+only, and nothing is sent anywhere. The first count reads every log once in the background; after
+that only what the agents appended is read, every five minutes and whenever the popover opens.
+
+## Tips
+
+Every few hours a short tip slides into the bottom-right corner: the show/hide hotkey, ⌘↩, the
+Sessions board and the like, always with your own key bindings. Each tip comes back at most five
+times; "Don't show again" retires one for good, and Settings → General → Tips turns them off (or
+brings them all back).
+
 ## Keys
 
 | | |

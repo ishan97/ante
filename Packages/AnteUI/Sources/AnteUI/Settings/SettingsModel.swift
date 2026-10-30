@@ -35,6 +35,16 @@ public final class SettingsModel {
 
     private var config: AnteConfig { runtime.config }
 
+    // MARK: - Tips
+
+    /// Tips live in UserDefaults (they are about this Mac's user, not the config file).
+    public var tipsEnabled: Bool {
+        get { runtime.tips.isEnabled }
+        set { runtime.tips.isEnabled = newValue }
+    }
+
+    public func resetTips() { runtime.tips.reset() }
+
     /// Records the value for instant display and writes it ~80 ms after the last change, so a
     /// slider drag costs one file write, not hundreds.
     private func write(_ section: String, _ key: String, _ value: ConfigEditor.Value) {

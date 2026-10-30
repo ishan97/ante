@@ -48,6 +48,7 @@ public struct WorkspaceView: View {
                             BannerView(text: text) { dismissedBanners.insert(text) }
                         }
                     }
+                    TipHost(runtime: runtime)
                     if runtime.isPaletteVisible {
                         Color.black.opacity(0.25)
                             .ignoresSafeArea()

@@ -51,6 +51,10 @@ public enum PaletteItems {
         for (id, title, action) in actions {
             items.append(PaletteItem(id: "action-\(id)", title: title, subtitle: nil, kind: .action, action: action))
         }
+        // The popover hangs off the toolbar's flame, which only shows once there is usage to count.
+        if runtime.tokens.report?.isEmpty == false {
+            items.append(PaletteItem(id: "action-tokens", title: "Token Usage", subtitle: nil, kind: .action) { runtime.isTokensVisible = true })
+        }
         for name in runtime.availableThemeNames {
             items.append(PaletteItem(id: "theme-\(name)", title: "Theme: \(name)", subtitle: nil, kind: .theme) { runtime.setThemeName(name) })
         }

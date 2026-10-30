@@ -36,6 +36,7 @@ struct WorkspaceToolbar: View {
             }
             Spacer()
             HStack(spacing: 4) {
+                tokensButton
                 pomodoroButton
                 scratchpadButton
                 Divider().frame(height: 14).padding(.horizontal, 2)
@@ -50,6 +51,8 @@ struct WorkspaceToolbar: View {
                 toolbarButton("rectangle.tophalf.inset.filled", help: "Split Up (\(runtime.config.keys.splitUp.display))") { runtime.splitFocusedPane(axis: .vertical, before: true) }
                 toolbarButton("rectangle.bottomhalf.inset.filled", help: "Split Down (\(runtime.config.keys.splitDown.display))") { runtime.splitFocusedPane(axis: .vertical) }
             }
+            // Scans only while there is a toolbar to show the result in.
+            .task { await runtime.tokens.keepFresh() }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
                 runtime.headerControlsWidth = width + 12 + 8   // trailing padding plus a little slack
             }
@@ -60,6 +63,38 @@ struct WorkspaceToolbar: View {
         .background(chrome.toolbar(AnteStyle.toolbarBackground))
         // A custom header colour brings its own light/dark text.
         .environment(\.colorScheme, chrome.headerIsDark.map { $0 ? .dark : .light } ?? colorScheme)
+    }
+
+    /// Tokens every agent used in the last 24 hours; the popover has the longer windows. Hidden
+    /// until there is something to count.
+    @ViewBuilder
+    private var tokensButton: some View {
+        if let report = runtime.tokens.report, !report.isEmpty {
+            let day = report.slice(.day).total
+            Button {
+                runtime.isTokensVisible.toggle()
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "flame")
+                        .font(.system(size: 12, weight: .medium))
+                    Text(TokenUsageModel.compact(day))
+                        .font(.system(size: 11, weight: .semibold)).monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+                .foregroundStyle(AnteStyle.textSecondary)
+                .frame(height: 22)
+                .padding(.horizontal, 4)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("\(day.formatted()) tokens in the last 24 hours, all agents. Click for 7 days to a year.")
+            .accessibilityLabel("Tokens in the last 24 hours: \(day.formatted())")
+            .popover(isPresented: $runtime.isTokensVisible, arrowEdge: .bottom) {
+                TokenUsageView(model: runtime.tokens)
+                    .task { await runtime.tokens.refresh() }
+            }
+            Divider().frame(height: 14).padding(.horizontal, 2)
+        }
     }
 
     /// The timer button shows the time left while a block runs, in the phase's colour.

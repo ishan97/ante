@@ -1,0 +1,64 @@
+// Packages/AnteUI/Sources/AnteUI/Tokens/TokenUsageModel.swift
+import Foundation
+import Observation
+import SwiftUI
+import AnteCore
+
+/// Behind the toolbar's token chip: the latest report, refreshed in the background. The ledger
+/// remembers what it has read, so after the first scan a refresh only reads what agents appended.
+@MainActor
+@Observable
+public final class TokenUsageModel {
+    public private(set) var report: TokenUsageReport?
+    public private(set) var isRefreshing = false
+    /// The window the popover is showing.
+    public var selected: TokenUsageReport.Window = .day
+
+    @ObservationIgnored private let ledger: TokenLedger
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+
+    public init(ledger: TokenLedger = TokenLedger()) {
+        self.ledger = ledger
+    }
+
+    /// Starts a scan unless one is already running; returns when the report is in.
+    public func refresh() async {
+        if let refreshTask { return await refreshTask.value }
+        isRefreshing = true
+        let task = Task { [ledger] in
+            let next = await ledger.report()
+            // The chip appears (and its number changes) smoothly, not with a jump of the toolbar.
+            withAnimation(.easeOut(duration: 0.25)) { self.report = next }
+        }
+        refreshTask = task
+        await task.value
+        refreshTask = nil
+        isRefreshing = false
+    }
+
+    /// Refreshes now and then every `interval` until the calling task is cancelled (the chip's
+    /// `.task`, so nothing scans while there is no window to show it in).
+    public func keepFresh(every interval: Duration = .seconds(300)) async {
+        while !Task.isCancelled {
+            await refresh()
+            try? await Task.sleep(for: interval)
+        }
+    }
+
+    /// `1,234` → "1.2K", `5_600_000` → "5.6M"; below a thousand the number itself.
+    public nonisolated static func compact(_ tokens: Int) -> String {
+        let units: [(Int, String)] = [(1_000_000_000_000, "T"), (1_000_000_000, "B"), (1_000_000, "M"), (1_000, "K")]
+        for (scale, suffix) in units where tokens >= scale {
+            // Three significant digits at most (1.24M, 12.4M, 124M), truncated so it never rounds
+            // up past what was used. Integer maths: binary doubles would turn 1130 into "1.12K".
+            let whole = tokens / scale
+            let digits = whole >= 100 ? 0 : (whole >= 10 ? 1 : 2)
+            let factor = [1, 10, 100][digits]
+            let fraction = (tokens % scale) / (scale / factor)
+            var decimals = digits == 0 ? "" : String(String(fraction + factor).dropFirst())   // zero-padded
+            while decimals.hasSuffix("0") { decimals.removeLast() }
+            return "\(whole)\(decimals.isEmpty ? "" : ".\(decimals)")\(suffix)"
+        }
+        return "\(max(0, tokens))"
+    }
+}

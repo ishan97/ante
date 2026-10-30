@@ -68,6 +68,15 @@ public struct SettingsView: View {
                     }
                 }
             }
+            Section("Tips") {
+                Toggle("Show a tip now and then", isOn: $model.tipsEnabled)
+                HStack(alignment: .top) {
+                    Text("A short tip in the corner every few hours, each one five times at most.")
+                        .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+                    Spacer()
+                    Button("Show All Tips Again") { model.resetTips() }
+                }
+            }
             Section("Window") {
                 Toggle("Open at a fixed size", isOn: $model.windowSizeIsFixed)
                 if model.windowSizeIsFixed {

@@ -37,6 +37,11 @@ public final class WorkspaceRuntime {
     /// The focus timer under the toolbar's timer button.
     public var isPomodoroVisible = false
     public let pomodoro = PomodoroModel()
+    /// The token-usage popover under the toolbar's flame chip.
+    public var isTokensVisible = false
+    public let tokens = TokenUsageModel()
+    /// The occasional tip in the corner of the workspace.
+    public let tips = TipsModel()
     /// Installed by the app at launch (Sparkle); nil in tests, previews, and unsigned builds.
     public var updater: (any UpdateChecking)?
     /// The Sessions view's model. Created after `self` exists; never nil after init.

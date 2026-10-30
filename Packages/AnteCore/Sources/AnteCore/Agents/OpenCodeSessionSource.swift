@@ -45,30 +45,32 @@ public struct OpenCodeSessionSource: Sendable {
 enum SQLiteReader {
     static func rows(database: URL, sql: String) -> [[String?]] {
         guard FileManager.default.fileExists(atPath: database.path) else { return [] }
-        var db: OpaquePointer?
         // A plain read-only open sees everything committed, including frames still in the WAL
         // (OpenCode runs in WAL mode; readers never block its writer). `immutable=1` — which
-        // ignores the WAL — is only the fallback for a store we cannot open normally.
+        // ignores the WAL — is only the fallback for a store we cannot open or query normally
+        // (a WAL database whose shared-memory file a reader may not create fails at prepare).
         let encoded = database.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? database.path
-        if sqlite3_open_v2("file:\(encoded)", &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) != SQLITE_OK {
-            if let db { sqlite3_close(db) }; db = nil
-            guard sqlite3_open_v2("file:\(encoded)?immutable=1", &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK else {
-                if let db { sqlite3_close(db) }
-                return []
-            }
-        }
-        guard let db else { return [] }
-        defer { sqlite3_close(db) }
+        return query("file:\(encoded)", sql: sql) ?? query("file:\(encoded)?immutable=1", sql: sql) ?? []
+    }
+
+    /// Nil when the database cannot be opened, the statement cannot be prepared, or stepping
+    /// fails part-way (so the caller's fallback gets a turn instead of a silent partial result).
+    private static func query(_ uri: String, sql: String) -> [[String?]]? {
+        var db: OpaquePointer?
+        defer { if let db { sqlite3_close(db) } }
+        guard sqlite3_open_v2(uri, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK, let db else { return nil }
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else { return [] }
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else { return nil }
         defer { sqlite3_finalize(statement) }
         var out: [[String?]] = []
         let columns = Int(sqlite3_column_count(statement))
-        while sqlite3_step(statement) == SQLITE_ROW {
+        var status = sqlite3_step(statement)
+        while status == SQLITE_ROW {
             out.append((0..<columns).map { i in
                 sqlite3_column_type(statement, Int32(i)) == SQLITE_NULL ? nil : sqlite3_column_text(statement, Int32(i)).map { String(cString: $0) }
             })
+            status = sqlite3_step(statement)
         }
-        return out
+        return status == SQLITE_DONE ? out : nil
     }
 }
