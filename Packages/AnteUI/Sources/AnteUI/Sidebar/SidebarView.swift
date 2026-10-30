@@ -110,8 +110,13 @@ struct SidebarView: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 4)
+        .popover(isPresented: isNewFolderVisible(anchor: project.id), arrowEdge: .trailing) {
+            NewFolderView(runtime: runtime)
+        }
         .contextMenu {
             Button("New Session") { runtime.newSession(in: project.id) }
+            Button("New Folder Inside…") { runtime.showNewFolder(inside: project) }
+            Divider()
             Button("Remove Project", role: .destructive) { runtime.removeProject(project.id) }
         }
     }
@@ -121,15 +126,36 @@ struct SidebarView: View {
             Button {
                 addProject()
             } label: {
-                Label("Add Project…", systemImage: "folder.badge.plus")
+                Label("Add Project…", systemImage: "folder")
                     .font(AnteStyle.uiFont)
                     .foregroundStyle(AnteStyle.textSecondary)
             }
             .buttonStyle(.plain)
+            .help("Open an existing folder as a project")
             Spacer()
+            Button {
+                runtime.showNewFolder()
+            } label: {
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 13))
+                    .foregroundStyle(AnteStyle.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .help("New Project Folder…")
+            .accessibilityLabel("New Project Folder")
+            .popover(isPresented: isNewFolderVisible(anchor: nil), arrowEdge: .top) {
+                NewFolderView(runtime: runtime)
+            }
         }
         .padding(.horizontal, 14)
         .frame(height: 34)
+    }
+
+    /// The New Folder popover shows on the footer button (`anchor` nil) or on the header of the
+    /// project it was asked for from.
+    private func isNewFolderVisible(anchor: ProjectID?) -> Binding<Bool> {
+        Binding(get: { runtime.newFolder.map { $0.anchor == anchor } ?? false },
+                set: { if !$0, runtime.newFolder?.anchor == anchor { runtime.newFolder = nil } })
     }
 
     private func liveController(for session: SessionID) -> TerminalSessionController? {
@@ -142,6 +168,7 @@ struct SidebarView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
         panel.prompt = "Add"
         panel.message = "Choose a project folder"
         if panel.runModal() == .OK, let url = panel.url {

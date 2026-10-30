@@ -78,4 +78,56 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         default: return nil
         }
     }
+
+    /// The command that picks up the agent's most recent session in the current folder, for a
+    /// pane whose exact session id is unknown. Nil when the agent has no such flag.
+    public var continueCommand: String? {
+        switch self {
+        case .claude: return "claude --continue"
+        case .codex: return "codex resume --last"
+        case .opencode: return "opencode --continue"
+        case .pi: return "pi --continue"
+        default: return nil
+        }
+    }
+
+    /// Starts the agent so the person picks the conversation: its session picker where it has one
+    /// (`claude --resume`, `codex resume`), else a plain start. For a pane whose conversation
+    /// cannot be told apart from another pane's.
+    public var pickerCommand: String? {
+        switch self {
+        case .claude: return "claude --resume"
+        case .codex: return "codex resume"
+        case .opencode: return "opencode"
+        case .pi: return "pi"
+        default: return nil
+        }
+    }
+
+    /// The session id a running agent was started with (`claude --resume X`, `codex resume X`,
+    /// `opencode --session X`), read from its command line. Nil when it started a new session.
+    public func sessionID(fromCommandLine commandLine: [String]) -> String? {
+        let flags: Set<String>
+        switch self {
+        case .claude: flags = ["--resume", "-r", "--session-id"]
+        case .codex: flags = ["resume"]
+        case .opencode: flags = ["--session", "-s"]
+        case .pi: flags = ["--session"]
+        default: return nil
+        }
+        for (index, argument) in commandLine.enumerated() {
+            let value: String?
+            if flags.contains(argument), index + 1 < commandLine.count {
+                value = commandLine[index + 1]
+            } else if let equals = argument.firstIndex(of: "="), flags.contains(String(argument[..<equals])) {
+                value = String(argument[argument.index(after: equals)...])
+            } else {
+                value = nil
+            }
+            // Only a safe token counts, never the next flag: `codex resume --last` and
+            // `claude --resume --model x` have no id to keep.
+            if let value, !value.hasPrefix("-"), resumeCommand(sessionID: value) != nil { return value }
+        }
+        return nil
+    }
 }

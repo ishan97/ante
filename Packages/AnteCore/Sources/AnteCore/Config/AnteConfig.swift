@@ -159,6 +159,7 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
     public var keys = Keys()
     public var cursor = Cursor()
     public var agents = Agents()
+    public var sessions = Sessions()
 
     /// `[window]`: the size the workspace window opens at, as fractions of the screen's usable
     /// area. 0 for either means "remember the last size" instead.
@@ -184,7 +185,7 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
 
     public static let `default` = AnteConfig()
 
-    private enum CodingKeys: String, CodingKey { case font, window, theme, wallpaper, hotkey, shell, keys, cursor, agents }
+    private enum CodingKeys: String, CodingKey { case font, window, theme, wallpaper, hotkey, shell, keys, cursor, agents, sessions }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -197,6 +198,7 @@ public struct AnteConfig: Equatable, Sendable, Decodable {
         keys = try c.decodeIfPresent(Keys.self, forKey: .keys) ?? keys
         cursor = try c.decodeIfPresent(Cursor.self, forKey: .cursor) ?? cursor
         agents = try c.decodeIfPresent(Agents.self, forKey: .agents) ?? agents
+        sessions = try c.decodeIfPresent(Sessions.self, forKey: .sessions) ?? sessions
     }
 }
 

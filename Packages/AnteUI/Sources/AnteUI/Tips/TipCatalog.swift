@@ -31,6 +31,12 @@ public enum TipCatalog {
             Tip(id: "history", symbol: "clock.arrow.circlepath", [
                 .text("Past Claude Code, Codex, OpenCode and Pi sessions are in History on the Sessions board. Click one to pick up where you left off."),
             ]),
+            Tip(id: "restore-sessions", symbol: "arrow.clockwise", [
+                .text("Want your sessions back after quitting? Settings → General → Reopen sessions brings back every session, split and agent conversation."),
+            ]),
+            Tip(id: "new-folder", symbol: "folder.badge.plus", [
+                .text("Starting something new? The folder button at the bottom of the sidebar makes the folder, adds it as a project and opens a session in it."),
+            ]),
             Tip(id: "waiting", symbol: "bell.badge", [
                 .text("Ante tells you when an agent is waiting for you. Install the Claude Code hook in Settings → Agents for an exact signal."),
             ]),

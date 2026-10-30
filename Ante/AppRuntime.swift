@@ -104,6 +104,12 @@ final class AppRuntime {
     }
 
     func prepareForQuit() {
+        // A setting changed just before ⌘Q — above all "Reopen sessions", which decides what
+        // quitting does — must count for this quit, ahead of the coalesced write and the watcher.
+        settings.flushPendingWrites()
+        if case let .loaded(latest) = ConfigLoader().load(from: paths.configFile), latest != workspace.config {
+            workspace.applyConfig(latest)
+        }
         configWatcher?.stop()
         hookWatcher?.stop()
         workspace.prepareForQuit()

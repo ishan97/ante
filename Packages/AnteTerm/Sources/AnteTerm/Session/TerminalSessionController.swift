@@ -29,6 +29,10 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
     public var onAgentTitle: ((AgentTitle?) -> Void)?
     /// Called on the main thread when the shell reports a new working directory (OSC 7).
     public var onDirectoryChanged: ((URL) -> Void)?
+    /// Called on the main thread when the shell draws a prompt (OSC 133;A): it is ready for input.
+    public var onPromptStarted: (() -> Void)?
+    /// Called on the main thread when the foreground process changes (an agent starts or exits).
+    public var onForegroundChanged: (() -> Void)?
     /// The program's latest OSC 9 notification ("Claude needs your permission") and when it came.
     public private(set) var lastNotification: (message: String, at: Date)?
     public private(set) var currentDirectory: URL?
@@ -139,6 +143,7 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
                 onDirectoryChanged?(url)
             case .promptStarted:
                 activity = .idle
+                onPromptStarted?()
             case let .notification(message):
                 lastNotification = (message, Date())
             }
@@ -270,13 +275,27 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
         probeTimer = nil
     }
 
+    /// Reads the foreground process now, on this thread, instead of waiting for the next
+    /// two-second probe. For quit: an agent that just exited must not be saved as running.
+    public func probeNow() {
+        guard state == .running, let fd = view.process?.childfd, fd >= 0 else { return }
+        let info = ForegroundProbe.foreground(ptyFD: fd)
+        if foreground != info {
+            foreground = info
+            onForegroundChanged?()
+        }
+    }
+
     private func probe() {
         guard state == .running, let fd = view.process?.childfd, fd >= 0 else { return }
         Task.detached(priority: .utility) { [weak self] in
             let info = ForegroundProbe.foreground(ptyFD: fd)
             await MainActor.run { [weak self] in
                 guard let self, self.state == .running else { return }
-                if self.foreground != info { self.foreground = info }
+                if self.foreground != info {
+                    self.foreground = info
+                    self.onForegroundChanged?()
+                }
             }
         }
     }

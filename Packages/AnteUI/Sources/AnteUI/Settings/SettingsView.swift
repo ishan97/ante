@@ -57,6 +57,13 @@ public struct SettingsView: View {
                 .pickerStyle(.segmented)
                 Toggle("Blink", isOn: $model.cursorBlink)
             }
+            Section("Sessions") {
+                Toggle("Reopen sessions when Ante starts", isOn: $model.restoreSessions)
+                Text(model.restoreSessions
+                     ? "Quitting keeps every session: names, folders and splits come back on the next launch, and Claude Code, Codex, OpenCode and Pi pick up their conversations. Screen contents are not saved, and other commands are not run again."
+                     : "Quitting files agent sessions into History, and each launch starts with one fresh session.")
+                    .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+            }
             if let updater = model.updater {
                 Section("Updates") {
                     Toggle("Check for updates automatically", isOn: $model.automaticUpdates)
@@ -274,7 +281,7 @@ public struct SettingsView: View {
 
     private var privacy: some View {
         Form {
-            Text("Quitting closes every agent session into History (name, folder and program only — never the screen contents). Each launch starts with a fresh session.")
+            Text("Quitting closes every agent session into History (name, folder and program only — never the screen contents). Each launch starts with a fresh session. With General → Sessions → Reopen sessions on, Ante instead keeps each session's name, folders, splits and agent session id in its state file under Application Support, again never the screen contents.")
                 .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
             Text("Ante's only network traffic is the daily update check (General → Updates); nothing you type or see leaves this Mac.")
                 .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)

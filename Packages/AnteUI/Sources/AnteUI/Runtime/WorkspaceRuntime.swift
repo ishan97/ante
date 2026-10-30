@@ -37,6 +37,8 @@ public final class WorkspaceRuntime {
     /// The focus timer under the toolbar's timer button.
     public var isPomodoroVisible = false
     public let pomodoro = PomodoroModel()
+    /// The sidebar's New Folder popover while it is open; nil while closed.
+    public var newFolder: NewFolderRequest?
     /// The token-usage popover under the toolbar's flame chip.
     public var isTokensVisible = false
     public let tokens = TokenUsageModel()
@@ -49,11 +51,18 @@ public final class WorkspaceRuntime {
     let historyStore: AnteSessionHistoryStore
     var pendingResumes: Set<SessionID> = []
     var resumeWaiters: [SessionID: [Task<Void, Never>]] = [:]
+    /// Restored agent panes whose resume command waits for the shell's first prompt.
+    var pendingPaneCommands: [PaneID: (command: String, fallback: Task<Void, Never>)] = [:]
+    /// When each pane's foreground process last changed: a hook's session id only counts for
+    /// the agent that started after it.
+    var foregroundSince: [PaneID: Date] = [:]
+    /// Set once quit has begun: dying shells must not overwrite the layouts saved for restore.
+    var isQuitting = false
 
     private let themeLoader: ThemeLoader
     private let launchFactory: LaunchFactory
-    private var layouts: [SessionID: SplitTree] = [:]
-    private var controllers: [PaneID: TerminalSessionController] = [:]
+    var layouts: [SessionID: SplitTree] = [:]
+    var controllers: [PaneID: TerminalSessionController] = [:]
     private var paneSessions: [PaneID: SessionID] = [:]
     private var placeholders: [PaneID: TerminalSessionController] = [:]
 
@@ -84,16 +93,25 @@ public final class WorkspaceRuntime {
             let home = store.addProject(rootDirectory: FileManager.default.homeDirectoryForCurrentUser)
             store.renameProject(home.id, to: "Home")
         }
-        // A launch starts clean. Sessions go to History on quit; anything a crash or forced quit
-        // left behind is dropped here (with no live pane its agent is unknown, and an agent
-        // session is in the agent's own history anyway), then one fresh session opens.
-        fileSessionsIntoHistory()
-        if let project = store.state.orderedProjects.first {
+        if config.sessions.restore {
+            // Every session comes back as it was, a crash's leftovers included.
+            restoreSessions()
+        } else {
+            // A launch starts clean. Sessions go to History on quit; anything a crash, a forced
+            // quit or a restore-on quit left behind is filed here too when its saved layout shows
+            // an agent, and dropped otherwise (a shell has nothing to resume).
+            fileSessionsIntoHistory()
+        }
+        if store.allVisibleSessions.isEmpty, let project = store.state.orderedProjects.first {
             store.addSession(in: project.id)
         }
         // Scratch sessions came from the old hotkey panel; state files may still carry one.
         if store.state.focusedSessionID == nil || store.focusedSession?.isScratch == true {
             store.focus(store.allVisibleSessions.first?.id)
+        }
+        // A restored session already has panes; give the focused one keyboard focus.
+        if let focused = store.state.focusedSessionID, layouts[focused] != nil {
+            open(session: focused)
         }
     }
 
@@ -189,7 +207,7 @@ public final class WorkspaceRuntime {
     }
 
     @discardableResult
-    private func makeController(pane: PaneID, session: SessionID, directory: URL?) -> TerminalSessionController {
+    func makeController(pane: PaneID, session: SessionID, directory: URL?) -> TerminalSessionController {
         let persisted = store.state.sessions.first { $0.id == session }
         let directory = directory ?? persisted?.workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser
         let launch = launchFactory(directory)
@@ -203,7 +221,14 @@ public final class WorkspaceRuntime {
             if let name = title?.name { self?.store.setAutoName(name, for: session) }
         }
         // Keep the persisted folder current, so a crash still files the session where it was.
-        controller.onDirectoryChanged = { [weak self] url in self?.store.updateSession(session, workingDirectory: url) }
+        controller.onDirectoryChanged = { [weak self] url in
+            self?.store.updateSession(session, workingDirectory: url)
+            self?.recordLayout(for: session)
+        }
+        controller.onForegroundChanged = { [weak self] in
+            self?.foregroundSince[pane] = Date()
+            self?.recordLayout(for: session)
+        }
         controllers[pane] = controller
         paneSessions[pane] = session
         controller.start()
@@ -232,6 +257,7 @@ public final class WorkspaceRuntime {
             controllers[pane]?.terminate()
             controllers[pane] = nil
             paneSessions[pane] = nil
+            forgetPane(pane)
         }
         layouts[id] = nil
         let wasFocused = store.state.focusedSessionID == id
@@ -254,18 +280,23 @@ public final class WorkspaceRuntime {
     private func closedSession(for session: Session) -> ClosedSession {
         let project = store.state.projects.first { $0.id == session.projectID }
         let controller = primaryController(for: session.id)
-        let cwd = controller?.currentDirectory ?? session.workingDirectory
+        // Without a live pane (a launch after quitting with restore on, then turning it off), the
+        // saved layout still knows which agent ran where.
+        let savedAgentPane = controller == nil ? session.layout?.panes.first { $0.agent?.isAgent == true } : nil
+        let cwd = controller?.currentDirectory ?? savedAgentPane?.workingDirectory ?? session.workingDirectory
         return ClosedSession(name: session.name, workingDirectory: cwd.path,
                              projectPath: project?.rootDirectory.path ?? cwd.path,
                              lastCommand: controller?.foregroundCommand.map(Self.programName) ?? session.lastCommand,
-                             agent: controller?.agent ?? .shell)
+                             agent: controller?.agent ?? savedAgentPane?.agent ?? .shell)
     }
 
     /// Only sessions with an agent in the foreground go to History: an agent session can be
     /// picked up again (its own history has the resume command, and the entry keeps the project
     /// folder), whereas a closed shell or a finished command has nothing to come back to.
     private func isWorthRemembering(_ session: Session) -> Bool {
-        guard let controller = primaryController(for: session.id) else { return false }
+        guard let controller = primaryController(for: session.id) else {
+            return session.layout?.panes.contains { $0.agent?.isAgent == true } ?? false
+        }
         return controller.agent.isAgent
     }
 
@@ -305,6 +336,7 @@ public final class WorkspaceRuntime {
         let inherited = controllers[current]?.currentDirectory
         makeController(pane: newPane, session: session, directory: inherited)
         focusedPaneID = newPane
+        recordLayout(for: session)
     }
 
     public func closeFocusedPane() {
@@ -319,7 +351,9 @@ public final class WorkspaceRuntime {
             controllers[pane]?.terminate()
             controllers[pane] = nil
             paneSessions[pane] = nil
+            forgetPane(pane)
             layouts[session] = remaining
+            recordLayout(for: session)
             if focusedPaneID == pane || focusedPaneID.map({ !remaining.contains($0) }) ?? true {
                 focusedPaneID = tree.neighbor(of: pane, direction: .left) ?? tree.neighbor(of: pane, direction: .up)
                     ?? remaining.paneIDs.first
@@ -343,6 +377,7 @@ public final class WorkspaceRuntime {
     public func setRatio(_ ratio: Double, forSplitContaining pane: PaneID) {
         guard let session = paneSessions[pane], let tree = layouts[session] else { return }
         layouts[session] = tree.withRatio(ratio, forSplitContaining: pane)
+        recordLayout(for: session)
     }
 
     // MARK: - Session navigation
@@ -364,11 +399,23 @@ public final class WorkspaceRuntime {
     // MARK: - Quit
 
     /// Quitting files every session into History (name, folder, last command), so the next launch
-    /// starts with one fresh session and nothing half-remembered. Projects stay. Then the state is
-    /// saved synchronously and every process group killed. Safe to call more than once.
+    /// starts with one fresh session and nothing half-remembered — or, with `[sessions] restore`,
+    /// keeps every session with its panes and agents for the next launch to reopen. Projects stay.
+    /// Then the state is saved synchronously and every process group killed. Safe to call more
+    /// than once.
     public func prepareForQuit() {
         scratchpad.flush()
-        fileSessionsIntoHistory()
+        if !isQuitting {
+            if config.sessions.restore {
+                for controller in controllers.values { controller.probeNow() }
+                recordAllLayouts()
+            } else {
+                fileSessionsIntoHistory()
+            }
+        }
+        isQuitting = true
+        for pending in pendingPaneCommands.values { pending.fallback.cancel() }
+        pendingPaneCommands.removeAll()
         store.saveNow()
         for controller in controllers.values {
             controller.terminate()

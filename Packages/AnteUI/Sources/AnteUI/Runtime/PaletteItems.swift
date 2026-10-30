@@ -35,6 +35,11 @@ public enum PaletteItems {
             ("close-pane", "Close Pane", { runtime.closeFocusedPane() }),
             ("clear-pane", "Clear Pane", { runtime.clearFocusedPane() }),
             ("toggle-sidebar", "Toggle Sidebar", { runtime.isSidebarVisible.toggle() }),
+            ("new-folder", "New Project Folder…", {
+                // The field hangs off the sidebar's footer.
+                runtime.isSidebarVisible = true
+                runtime.showNewFolder()
+            }),
             ("show-hide", "Hide Ante (Hotkey)", toggleWindow),
             ("find", "Find in Scrollback", { runtime.isSearchVisible = true }),
             ("insert-file", "Insert File Path…", { runtime.insertFilePaths() }),

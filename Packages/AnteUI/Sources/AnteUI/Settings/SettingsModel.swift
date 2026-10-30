@@ -256,6 +256,15 @@ public final class SettingsModel {
 
     public var keyBindings: [(key: String, label: String, binding: KeyBinding)] { config.keys.all }
 
+    // MARK: Sessions
+
+    /// `[sessions] restore`: reopen every session as it was instead of starting fresh. Read at
+    /// launch and at quit, so it applies to the next quit without a restart.
+    public var restoreSessions: Bool {
+        get { pendingBool("sessions.restore") ?? config.sessions.restore }
+        set { write("sessions", "restore", .bool(newValue)) }
+    }
+
     // MARK: Agents
 
     public var notifyWaiting: Bool {

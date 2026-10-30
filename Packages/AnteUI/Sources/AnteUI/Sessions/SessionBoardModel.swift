@@ -34,6 +34,8 @@ public final class SessionBoardModel {
 
     private unowned let runtime: WorkspaceRuntime
     private var hookSignals: [String: (meaning: HookEvent.Meaning, at: Date)] = [:]
+    /// The agent session a hook last reported in each folder, for `[sessions] restore`.
+    private var hookSessions: [String: (agent: AgentKind, id: String, at: Date)] = [:]
     private var columnSince: [PaneID: (column: BoardColumn, at: Date)] = [:]
     private var timer: Timer?
     /// Delivers a "waiting for you" notification (macOS notification + the configured sound);
@@ -71,10 +73,19 @@ public final class SessionBoardModel {
 
     public func ingest(_ events: [HookEvent]) {
         for event in events {
-            guard let cwd = event.cwd, event.meaning != .other else { continue }
+            guard let cwd = event.cwd else { continue }
+            if let id = event.sessionID { hookSessions[Self.normalize(cwd)] = (event.agent, id, event.at) }
+            guard event.meaning != .other else { continue }
             hookSignals[Self.normalize(cwd)] = (event.meaning, event.at)
         }
         refresh()
+        runtime.recordAllLayouts()
+    }
+
+    /// The session id a hook reported for `agent` in `directory` at or after `since`.
+    func hookSessionID(agent: AgentKind, directory: URL, since: Date) -> String? {
+        guard let entry = hookSessions[Self.normalize(directory.path)], entry.agent == agent, entry.at >= since else { return nil }
+        return entry.id
     }
 
     // MARK: - Cards

@@ -113,6 +113,15 @@ public final class WorkspaceStore {
         scheduleSave()
     }
 
+    /// Records a session's panes for `[sessions] restore`. Writes only when something changed, so
+    /// it is cheap to call on every split, folder change or agent start.
+    public func setLayout(_ layout: SavedLayout?, for id: SessionID) {
+        guard let index = state.sessions.firstIndex(where: { $0.id == id }),
+              state.sessions[index].layout != layout else { return }
+        state.sessions[index].layout = layout
+        scheduleSave()
+    }
+
     /// Moves a session to `order` within its project, renumbering siblings 0…n.
     public func moveSession(_ id: SessionID, toOrder order: Int) {
         guard let moving = state.sessions.first(where: { $0.id == id }) else { return }

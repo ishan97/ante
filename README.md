@@ -5,7 +5,7 @@
 **[anterm.app](https://anterm.app)** · [Download](https://github.com/ishan97/ante/releases/latest/download/Ante.dmg) · macOS 14+, Apple silicon
 
 A native macOS terminal built as a workspace: projects and sessions in a sidebar, sessions that
-land in History on quit, splits, a global show/hide hotkey, themes, and shell integration that
+land in History on quit — or reopen just as they were — splits, a global show/hide hotkey, themes, and shell integration that
 never touches your rc files.
 
 ## Build
@@ -50,6 +50,32 @@ quiet for `[agents] quiet_seconds` (default 8). The moment a session moves into 
 posts a macOS notification (click it to jump to the session) and plays the sound you pick under
 Settings → Agents (`[agents] notify`, `notify_sound`); the Dock icon counts waiting sessions. Settings → Agents can install the Claude Code
 hook (into `~/.claude/settings.json`, backed up; removable) for the definite signal.
+
+### Reopening sessions
+
+By default quitting files agent sessions into History and the next launch starts with one fresh
+session. Turn on Settings → General → **Reopen sessions when Ante starts** (`[sessions] restore =
+true`) and quitting keeps them instead: every session comes back with its name, its splits and
+each pane's folder, and a pane that was running Claude Code, Codex, OpenCode or Pi types the
+agent's resume command once its shell is ready (never if you have started typing there). That is
+the exact conversation when Ante knows its id — from the agent's command line, or from the Claude
+Code hook when no other pane runs Claude in that folder — and otherwise the agent's latest one in
+the folder (`claude --continue`, `codex resume --last`, `opencode --continue`, `pi --continue`).
+When two panes ran the same agent in one folder without known ids, each opens the agent's picker
+instead (`claude --resume`, `codex resume`; OpenCode and Pi start a new one), so they never land
+in the same conversation. The
+layout is kept current as you work, so a crash restores too; turn the setting off and the next
+launch files those agent sessions into History as usual. Screen contents are never saved, and
+other commands are not run again. A pane whose folder is gone opens in its project instead, without
+resuming anything.
+
+## Projects
+
+**Add Project…** at the bottom of the sidebar opens an existing folder. The folder button beside
+it (or **New Project Folder…** in the command palette) makes a new one: type a name, and Ante
+creates the folder beside your most recent project (Change… picks another place), adds it as a
+project and opens a session in it. Right-click a project for **New Folder Inside…**, which makes
+the folder inside that project and adds it as a project of its own.
 
 ## Tokens
 
