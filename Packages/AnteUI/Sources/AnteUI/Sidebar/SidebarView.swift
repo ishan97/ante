@@ -12,7 +12,7 @@ struct SidebarView: View {
     @Bindable var runtime: WorkspaceRuntime
 
     /// The scrolling list's own coordinate space: rows, headers and the drag all report in it.
-    static let listSpace = "ante.sidebar.list"
+    nonisolated static let listSpace = "ante.sidebar.list"
 
     /// A session being dragged to another place or project.
     private struct SessionDrag: Equatable {
