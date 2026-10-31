@@ -74,3 +74,56 @@ final class TokenPopoverStressTests: XCTestCase {
         XCTAssertEqual(rounds, reports.count * 2 * 4 * TokenUsageReport.Window.allCases.count)
     }
 }
+
+/// A refresh that finishes while the popover is open must not change its height under the
+/// user's pointer; it waits until the popover closes. One that keeps the shape applies at once.
+@MainActor
+final class TokenReportWhileOpenTests: XCTestCase {
+    private func report(_ agents: [AgentKind], tokens: Int = 10) -> TokenUsageReport {
+        TokenUsageReport.build(records: agents.map {
+            TokenRecord(at: Date().addingTimeInterval(-60), agent: $0, model: "m-\($0.rawValue)", count: TokenCount(output: tokens))
+        })
+    }
+
+    func testShapeChangingReportsWaitForTheClose() async {
+        let model = TokenUsageModel()
+        model.receive(report([.claude]))
+        model.popoverAppeared()
+        model.receive(report([.claude], tokens: 99))
+        XCTAssertEqual(model.report?.slice(.day).total, 99, "same shape: applied while open")
+        model.receive(report([.claude, .codex]))
+        XCTAssertEqual(model.report?.slice(.year).byAgent.count, 1, "a new agent would grow the popover: held")
+        model.receive(report([.claude, .codex, .pi]))
+        XCTAssertEqual(model.report?.slice(.year).byAgent.count, 1, "still held; only the newest is kept")
+        model.popoverDisappeared()
+        await Task.yield(); await Task.yield()
+        XCTAssertEqual(model.report?.slice(.year).byAgent.count, 3, "applied once the popover has closed")
+        XCTAssertNil(model.heldReport)
+    }
+
+    /// Reopening from the chip: the new popover appears before the old one disappears. The model
+    /// must still count one open popover, and hold shape changes.
+    func testReopenOrderingKeepsItPresented() async {
+        let model = TokenUsageModel()
+        model.receive(report([.claude]))
+        model.popoverAppeared()          // first popover
+        model.popoverAppeared()          // the reopened one, before…
+        model.popoverDisappeared()       // …the first one's disappear
+        XCTAssertTrue(model.isPresented)
+        model.receive(report([.claude, .codex]))
+        await Task.yield()
+        XCTAssertEqual(model.report?.slice(.year).byAgent.count, 1, "held: a popover is still open")
+        model.popoverDisappeared()
+        model.popoverDisappeared()       // an extra disappear never goes negative
+        await Task.yield(); await Task.yield()
+        XCTAssertFalse(model.isPresented)
+        XCTAssertEqual(model.report?.slice(.year).byAgent.count, 2)
+    }
+
+    func testFirstReportAppliesEvenWhileOpen() {
+        let model = TokenUsageModel()
+        model.popoverAppeared()
+        model.receive(report([.claude]))
+        XCTAssertNotNil(model.report)
+    }
+}

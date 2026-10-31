@@ -25,6 +25,7 @@ final class AppRuntime {
     weak var windowController: MainWindowController?
     private var configWatcher: ConfigWatcher?
     private var hookWatcher: HookEventWatcher?
+    @ObservationIgnored private var occlusionObserver: NSObjectProtocol?
     private let integration: InstalledIntegration?
     private let appVersion: String
 
@@ -97,6 +98,16 @@ final class AppRuntime {
         toggler.overlayHeight = workspace.config.hotkey.height
         toggler.installGlobalShortcut()
         hotkey = toggler
+        // Hidden by the hotkey (ordered out, not closed), moved to another Space or covered: the
+        // token popover closes with it, so it never sits "open" unseen, holding back fresh numbers.
+        occlusionObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
+        ) { [weak self, weak window] _ in
+            MainActor.assumeIsolated {
+                guard let self, let window, !window.occlusionState.contains(.visible) else { return }
+                self.workspace.isTokensVisible = false
+            }
+        }
     }
 
     private static func reveal(for animation: AnteConfig.Hotkey.Animation) -> HotkeyWindowToggler.Reveal {

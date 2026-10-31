@@ -90,7 +90,9 @@ public actor TokenLedger {
         if let codexHome = sources.codexHome {
             records += Self.codexThreads(home: codexHome, since: horizon, skipping: readCodexThreads)
         }
-        return TokenUsageReport.build(records: records.filter { $0.at > horizon }, now: now, calendar: calendar)
+        // No filtered copy: every window starts at or after `horizon`, so older records count
+        // nowhere anyway, and a year of records is too many to copy for nothing.
+        return TokenUsageReport.build(records: records, now: now, calendar: calendar)
     }
 
     // MARK: - Files
@@ -312,7 +314,7 @@ public actor TokenLedger {
               AND json_extract(data, '$.role') = 'assistant' AND json_type(data, '$.tokens') = 'object'
             LIMIT 1000000
             """).compactMap { row in
-            guard row.count >= 7, let ms = row[0].flatMap(Double.init) else { return nil }
+            guard row.count >= 7, let ms = row[0].flatMap(Double.init), ms.isFinite else { return nil }
             func n(_ i: Int) -> Int { TokenCount.field(row[i].flatMap(Double.init).map(NSNumber.init(value:))) }
             let count = TokenCount(input: n(2), output: n(3) + n(4), cacheRead: n(5), cacheWrite: n(6))
             guard count.total > 0 else { return nil }

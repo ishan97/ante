@@ -35,6 +35,8 @@ struct TokenUsageView: View {
         // resizes while animating can crash AppKit. Only the number and the agent bar animate
         // (their own `.animation` modifiers sit below this), and neither changes the height.
         .transaction { $0.animation = nil }
+        .onAppear { model.popoverAppeared() }
+        .onDisappear { model.popoverDisappeared() }
     }
 
     private var header: some View {
@@ -43,9 +45,9 @@ struct TokenUsageView: View {
                 .font(AnteStyle.uiFontSemibold)
                 .foregroundStyle(AnteStyle.textPrimary)
             Spacer()
-            if model.isRefreshing && model.report != nil {
-                ProgressView().controlSize(.mini)
-            }
+            // Always in the layout, shown by opacity: nothing is inserted while the popover is up.
+            ProgressView().controlSize(.mini)
+                .opacity(model.isRefreshing && model.report != nil ? 1 : 0)
             Text("All agents")
                 .font(AnteStyle.captionFont)
                 .foregroundStyle(AnteStyle.textSecondary)

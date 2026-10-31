@@ -138,8 +138,9 @@ public struct TokenUsageReport: Equatable, Sendable {
         // The same response can sit in several files; the first copy wins.
         var seen = Set<String>()
         var unique: [TokenRecord] = []
-        unique.reserveCapacity(records.count)
-        for record in records where record.at <= now {
+        // Nothing older than the longest window counts anywhere.
+        let oldest = Window.year.start(before: now, calendar: calendar)
+        for record in records where record.at <= now && record.at > oldest {
             if let key = record.key, !seen.insert(key).inserted { continue }
             unique.append(record)
         }
