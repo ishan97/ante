@@ -9,7 +9,7 @@ import AnteCore
 @MainActor
 @Observable
 public final class TokenUsageModel {
-    public private(set) var report: TokenUsageReport?
+    public internal(set) var report: TokenUsageReport?
     public private(set) var isRefreshing = false
     /// The window the popover is showing.
     public var selected: TokenUsageReport.Window = .day

@@ -31,6 +31,10 @@ struct TokenUsageView: View {
         .padding(16)
         .frame(width: 320)
         .background(AnteStyle.paneBackground)
+        // No animation, from any caller, ever reaches the popover's layout: an NSPopover that
+        // resizes while animating can crash AppKit. Only the number and the agent bar animate
+        // (their own `.animation` modifiers sit below this), and neither changes the height.
+        .transaction { $0.animation = nil }
     }
 
     private var header: some View {
