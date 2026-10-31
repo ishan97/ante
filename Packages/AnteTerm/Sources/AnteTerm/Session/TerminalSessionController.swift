@@ -46,6 +46,10 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
     public private(set) var lastOutputAt = Date()
     /// When the user last typed or pasted into this pane. Answers a "waiting for you" state.
     public private(set) var lastInputAt: Date?
+    /// When the user last typed text (printable keys, a paste, dropped paths) into this pane.
+    /// Return, Esc, arrows and the like answer an agent but leave nothing on the command line,
+    /// so a pending resume command may still be typed after them.
+    public private(set) var lastTypedAt: Date?
     /// Output before this instant is a redraw (attach/resize), not the program doing work.
     private var ignoreOutputUntil = Date.distantPast
     /// Who is in the foreground of the pty, sampled every two seconds while running.
@@ -96,6 +100,7 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
             }
         }
         view.onUserInput = { [weak self] in self?.lastInputAt = Date() }
+        view.onTyping = { [weak self] in self?.lastTypedAt = Date() }
         view.onAttached = { [weak self] in self?.ignoreRedrawOutput() }
         let marks = promptMarks
         view.onScreenCleared = { marks.invalidateAll() }

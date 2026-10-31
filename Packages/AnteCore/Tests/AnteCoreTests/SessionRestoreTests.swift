@@ -44,7 +44,7 @@ final class SessionRestoreTests: XCTestCase {
                      "the next flag is not an id")
         XCTAssertEqual(AgentKind.claude.pickerCommand, "claude --resume")
         XCTAssertEqual(AgentKind.codex.pickerCommand, "codex resume")
-        XCTAssertNil(AgentKind.gemini.pickerCommand)
+        XCTAssertEqual(AgentKind.gemini.pickerCommand, "gemini", "no picker: a plain start beats an empty shell")
     }
 
     func testSavedPaneResumesTheExactSessionWhenKnownElseTheLatest() {

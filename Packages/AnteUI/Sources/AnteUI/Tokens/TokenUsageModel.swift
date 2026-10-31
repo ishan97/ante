@@ -26,9 +26,9 @@ public final class TokenUsageModel {
         if let refreshTask { return await refreshTask.value }
         isRefreshing = true
         let task = Task { [ledger] in
-            let next = await ledger.report()
-            // The chip appears (and its number changes) smoothly, not with a jump of the toolbar.
-            withAnimation(.easeOut(duration: 0.25)) { self.report = next }
+            // Not inside `withAnimation`: the popover may be open, and an animated resize of a
+            // toolbar popover can crash AppKit. The chip animates its own number.
+            self.report = await ledger.report()
         }
         refreshTask = task
         await task.value

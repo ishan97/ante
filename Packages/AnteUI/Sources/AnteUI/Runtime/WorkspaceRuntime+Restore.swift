@@ -29,7 +29,7 @@ extension WorkspaceRuntime {
         }
     }
 
-    private func savedPane(_ pane: PaneID) -> SavedPane {
+    func savedPane(_ pane: PaneID) -> SavedPane {
         let controller = controllers[pane]
         let session = self.session(for: pane).flatMap { id in store.state.sessions.first { $0.id == id } }
         let directory = controller?.currentDirectory ?? session?.workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser
@@ -122,7 +122,7 @@ extension WorkspaceRuntime {
         guard let controller = controllers[pane] else { return }
         controller.onPromptStarted = nil
         // If the person already started typing, do not type over them.
-        if controller.lastInputAt != nil { return }
+        if controller.lastTypedAt != nil { return }
         controller.view.send(txt: pending.command + "\n")
     }
 

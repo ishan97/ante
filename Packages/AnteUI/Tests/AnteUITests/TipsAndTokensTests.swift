@@ -95,8 +95,39 @@ final class TipsAndTokensTests: XCTestCase {
         XCTAssertEqual(TokenUsageModel.compact(100_999_999), "100M")
     }
 
+    /// Picking a window must never change the popover's shape: the legend lists the year's
+    /// agents and the model section keeps its number of lines.
+    func testPopoverRowsDoNotDependOnTheWindow() {
+        let now = Date()
+        func record(_ daysAgo: Double, _ agent: AgentKind, _ model: String, _ tokens: Int) -> TokenRecord {
+            TokenRecord(at: now.addingTimeInterval(-daysAgo * 86400 + 60), agent: agent, model: model, count: TokenCount(output: tokens))
+        }
+        let report = TokenUsageReport.build(records: [
+            record(0.5, .claude, "opus", 1_000),
+            record(20, .codex, "gpt-a", 300), record(20, .codex, "gpt-b", 200), record(20, .claude, "sonnet", 100),
+            record(40, .opencode, "pickle", 50), record(40, .claude, "haiku", 40), record(40, .claude, "m6", 30),
+        ], now: now)
+        let year = report.slice(.year)
+        for window in TokenUsageReport.Window.allCases {
+            let slice = report.slice(window)
+            XCTAssertEqual(TokenUsageView.legend(slice, year: year).map(\.agent), [.claude, .codex, .opencode], "\(window)")
+            let lines = TokenUsageView.modelLines(slice, year: year)
+            XCTAssertEqual(lines.shown.count + (lines.more == nil ? 0 : 1) + lines.blanks, 5, "\(window)")
+        }
+        let day = TokenUsageView.legend(report.slice(.day), year: year)
+        XCTAssertEqual(day.map(\.tokens), [1_000, 0, 0], "agents that sat the window out show as zero")
+        let all = TokenUsageView.modelLines(year, year: year)
+        XCTAssertEqual(all.shown.map(\.name), ["opus", "gpt-a", "gpt-b", "sonnet"])
+        XCTAssertEqual(all.more?.count, 3)
+        XCTAssertEqual(all.more?.tokens, 120)
+        let quiet = TokenUsageView.modelLines(report.slice(.day), year: year)
+        XCTAssertEqual(quiet.shown.map(\.name), ["opus"])
+        XCTAssertEqual(quiet.blanks, 4)
+    }
+
     func testPercentLabels() {
         XCTAssertEqual(TokenUsageView.percent(0, of: 0), "")
+        XCTAssertEqual(TokenUsageView.percent(0, of: 1_000), "", "an agent that sat the window out shows no share")
         XCTAssertEqual(TokenUsageView.percent(1, of: 1_000), "<1%")
         XCTAssertEqual(TokenUsageView.percent(995, of: 1_000), "100%")
         XCTAssertEqual(TokenUsageView.percent(1, of: 3), "33%")

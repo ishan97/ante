@@ -121,7 +121,8 @@ final class SessionBoardTests: XCTestCase {
         XCTAssertEqual(history.first?.name, "deploy")
         XCTAssertEqual(history.first?.projectPath, project.rootDirectory.path)
         XCTAssertEqual(history.first?.agent, .claude)
-        XCTAssertEqual(history.first?.asPastSession.resumeCommand, nil)
+        // No conversation id is known for this pane: History opens the picker, not a bare shell.
+        XCTAssertEqual(history.first?.asPastSession.resumeCommand, "claude --resume")
 
         // A plain shell session, even renamed, leaves nothing behind: there is nothing to resume.
         let (shellRuntime, shellRoot) = makeRuntime(script: "sleep 30")

@@ -65,6 +65,37 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.visibleSessions(in: p.id).map(\.id), [c.id, a.id, b.id])
     }
 
+    func testMoveSessionToAnotherProjectRenumbersBoth() {
+        let store = makeStore()
+        let p = store.addProject(rootDirectory: URL(fileURLWithPath: "/tmp/p"))
+        let q = store.addProject(rootDirectory: URL(fileURLWithPath: "/tmp/q"))
+        let a = store.addSession(in: p.id)
+        let b = store.addSession(in: p.id)
+        let c = store.addSession(in: p.id)
+        let x = store.addSession(in: q.id)
+        let y = store.addSession(in: q.id)
+        store.moveSession(b.id, to: q.id, at: 1)
+        XCTAssertEqual(store.visibleSessions(in: p.id).map(\.id), [a.id, c.id])
+        XCTAssertEqual(store.visibleSessions(in: q.id).map(\.id), [x.id, b.id, y.id])
+        XCTAssertEqual(store.visibleSessions(in: p.id).map(\.order), [0, 1], "no gap left behind")
+        XCTAssertEqual(store.visibleSessions(in: q.id).map(\.order), [0, 1, 2])
+        XCTAssertEqual(store.state.focusedSessionID, y.id, "moving does not change focus")
+        // Past the end appends; a project that does not exist is ignored.
+        store.moveSession(a.id, to: q.id, at: 99)
+        XCTAssertEqual(store.visibleSessions(in: q.id).map(\.id), [x.id, b.id, y.id, a.id])
+        store.moveSession(c.id, to: ProjectID(), at: 0)
+        XCTAssertEqual(store.visibleSessions(in: p.id).map(\.id), [c.id])
+    }
+
+    func testMoveSessionNeverMovesTheScratchSession() {
+        let store = makeStore()
+        let p = store.addProject(rootDirectory: URL(fileURLWithPath: "/tmp/p"))
+        let q = store.addProject(rootDirectory: URL(fileURLWithPath: "/tmp/q"))
+        let scratch = store.addSession(in: p.id, name: "Scratch", isScratch: true)
+        store.moveSession(scratch.id, to: q.id, at: 0)
+        XCTAssertEqual(store.scratchSession?.projectID, p.id)
+    }
+
     func testScratchSessionIsHiddenFromVisibleSessions() {
         let store = makeStore()
         let p = store.addProject(rootDirectory: URL(fileURLWithPath: "/tmp/p"))

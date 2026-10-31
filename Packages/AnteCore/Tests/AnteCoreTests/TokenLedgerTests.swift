@@ -182,6 +182,44 @@ final class TokenLedgerTests: XCTestCase {
         XCTAssertEqual(report.slice(.year).byModel.map(\.name), ["big-pickle"])
     }
 
+    func testCodexThreadsWithoutARolloutCountFromItsStateDatabase() async throws {
+        let now = Date()
+        let t = now.addingTimeInterval(-600)
+        // A thread whose rollout is read: counted from the rollout, not again from the index.
+        let read = "01a0f7f8-1d71-7331-af05-235325d0a18b"
+        _ = try write("codex/2026/10/30/rollout-2026-10-30T10-00-00-\(read).jsonl", [
+            #"{"timestamp":"\#(iso(t))","type":"turn_context","payload":{"model":"gpt-a"}}"#,
+            #"{"timestamp":"\#(iso(t))","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":10}}}}"#,
+        ])
+        let home = root.appendingPathComponent("codexhome")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        // An older generation of the store is ignored in favour of the newest.
+        for (name, tokens) in [("state_4.sqlite", 999_999), ("state_5.sqlite", 0)] {
+            var handle: OpaquePointer?
+            XCTAssertEqual(sqlite3_open(home.appendingPathComponent(name).path, &handle), SQLITE_OK)
+            let s = Int64(t.timeIntervalSince1970), old = Int64(now.addingTimeInterval(-400 * 86400).timeIntervalSince1970)
+            let sql = """
+                CREATE TABLE threads (id TEXT PRIMARY KEY, rollout_path TEXT NOT NULL, updated_at INTEGER NOT NULL, tokens_used INTEGER NOT NULL DEFAULT 0, model TEXT, updated_at_ms INTEGER);
+                INSERT INTO threads VALUES ('\(read)', '/nowhere/\(read).jsonl', \(s), 110, 'gpt-a', \(s * 1000));
+                INSERT INTO threads VALUES ('gone', '/nowhere/gone.jsonl', \(s), \(tokens == 0 ? 5000 : tokens), 'gpt-b', \(s * 1000));
+                INSERT INTO threads VALUES ('old', '/nowhere/old.jsonl', \(old), 7, 'gpt-b', \(old * 1000));
+                INSERT INTO threads VALUES ('empty', '/nowhere/empty.jsonl', \(s), 0, 'gpt-b', \(s * 1000));
+                """
+            XCTAssertEqual(sqlite3_exec(handle, sql, nil, nil, nil), SQLITE_OK)
+            sqlite3_close(handle)
+        }
+        var withHome = sources
+        withHome.codexHome = home
+        let ledger = TokenLedger(sources: withHome)
+        var day = await ledger.report(now: now).slice(.day)
+        XCTAssertEqual(day.total, 5110)
+        XCTAssertEqual(day.byModel.map(\.name), ["gpt-b", "gpt-a"])
+        XCTAssertEqual(day.byAgent.map(\.agent), [.codex])
+        // A second scan does not count the thread twice.
+        day = await ledger.report(now: now).slice(.day)
+        XCTAssertEqual(day.total, 5110)
+    }
+
     func testHostileNumbersCountAsZero() {
         XCTAssertEqual(TokenCount.field(-5), 0)
         XCTAssertEqual(TokenCount.field("12"), 0)

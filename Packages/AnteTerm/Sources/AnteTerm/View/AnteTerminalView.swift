@@ -31,6 +31,9 @@ public final class AnteTerminalView: LocalProcessTerminalView {
     public var onOutput: (() -> Void)?
     /// Called on the main thread when the user types or pastes into this terminal.
     public var onUserInput: (() -> Void)?
+    /// Called on the main thread when that input put text on the line: a printable key, a paste
+    /// or dropped paths. Not for Return, Esc, arrows or control keys.
+    public var onTyping: (() -> Void)?
     /// Called on the main thread when the view (re)joins a window. Programs redraw on attach and
     /// resize, so the output that follows says nothing about whether they are busy.
     public var onAttached: (() -> Void)?
@@ -57,6 +60,7 @@ public final class AnteTerminalView: LocalProcessTerminalView {
         let line = ShellQuote.line(for: urls)
         guard !line.isEmpty else { return }
         onUserInput?()
+        onTyping?()
         send(txt: line)
     }
 
@@ -87,13 +91,26 @@ public final class AnteTerminalView: LocalProcessTerminalView {
     private func installKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if let self, event.window === self.window, self.window?.firstResponder === self { self.onUserInput?() }
+            // ⌘-shortcuts (switching sessions, splitting, the palette) are not typing: counting them
+            // would make a fresh pane skip the resume command it is waiting to type.
+            if let self, event.window === self.window, self.window?.firstResponder === self,
+               !event.modifierFlags.contains(.command) {
+                self.onUserInput?()
+                if Self.isTyping(event) { self.onTyping?() }
+            }
             return event
         }
     }
 
     deinit {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+    }
+
+    /// A key that puts text on the line: printable, without Control. Return, Tab, Esc, Delete,
+    /// arrows and function keys (AppKit's private-use range) are not typing.
+    static func isTyping(_ event: NSEvent) -> Bool {
+        guard !event.modifierFlags.contains(.control), let scalar = event.characters?.unicodeScalars.first else { return false }
+        return scalar.value >= 0x20 && scalar.value != 0x7F && !(0xF700...0xF8FF).contains(scalar.value)
     }
 
     public func claimKeyboardIfAppropriate() {
@@ -219,6 +236,7 @@ public final class AnteTerminalView: LocalProcessTerminalView {
     /// bracketed paste is SwiftTerm's default so the shell sees it as one block.
     public override func paste(_ sender: Any) {
         onUserInput?()
+        onTyping?()
         super.paste(sender)
     }
 

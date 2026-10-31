@@ -43,7 +43,9 @@ storage — Claude Code (`~/.claude/projects`), Codex (`~/.codex/sessions` and `
 OpenCode (`~/.local/share/opencode/opencode.db`), Pi (`~/.pi/agent/sessions`) — plus agent
 sessions closed in Ante (plain shells have nothing to resume, so they are not kept). Click an
 agent's own entry to open a pane in that project and resume it (`claude --resume …`,
-`codex resume …`, `opencode --session …`, `pi --session …`); an Ante entry opens a pane in that folder.
+`codex resume …`, `opencode --session …`, `pi --session …`). An Ante entry opens a pane in that
+folder and resumes the same conversation when Ante knew its id, otherwise it opens the agent's
+session picker (`claude --resume`, `codex resume`).
 
 "Waiting for you" is definite when an agent hook says so and probable when an agent has been
 quiet for `[agents] quiet_seconds` (default 8). The moment a session moves into that column Ante
@@ -77,13 +79,20 @@ creates the folder beside your most recent project (Change… picks another plac
 project and opens a session in it. Right-click a project for **New Folder Inside…**, which makes
 the folder inside that project and adds it as a project of its own.
 
+Drag a session in the sidebar to reorder it, or onto another project to move it there (a line
+shows where it will land; let go outside the sidebar to cancel). Right-click a session for
+**Move to Project** to do the same from the menu. The session keeps running and keeps its folder;
+only where it is listed changes.
+
 ## Tokens
 
 The flame in the toolbar shows how many tokens your agents used in the last 24 hours, all of them
 together. Click it for 7, 30, 60 and 90 days, 6 months and a year, each split by agent, by model
 and into input, output and cache. The numbers are added up from the agents' own logs on this Mac —
-Claude Code transcripts, Codex rollouts, OpenCode's database, Pi sessions and Gemini CLI chats — read
-only, and nothing is sent anywhere. The first count reads every log once in the background; after
+Claude Code transcripts, Codex rollouts (and Codex's thread index for threads whose rollout is
+gone), OpenCode's database, Pi sessions and Gemini CLI chats — read only, and nothing is sent
+anywhere. Every agent with tokens in the last year stays listed in every window, with a dash where
+it used none. The first count reads every log once in the background; after
 that only what the agents appended is read, every five minutes and whenever the popover opens.
 
 ## Tips

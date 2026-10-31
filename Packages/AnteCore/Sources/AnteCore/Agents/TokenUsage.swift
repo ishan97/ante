@@ -105,6 +105,11 @@ public struct TokenUsageReport: Equatable, Sendable {
         public let agent: AgentKind
         public let tokens: Int
         public var id: AgentKind { agent }
+
+        public init(agent: AgentKind, tokens: Int) {
+            self.agent = agent
+            self.tokens = tokens
+        }
     }
 
     public struct Slice: Equatable, Sendable, Identifiable {

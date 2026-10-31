@@ -15,13 +15,16 @@ public actor TokenLedger {
         public var openCodeDatabase: URL
         public var piSessions: URL
         public var geminiTmp: URL
+        /// Codex's home (`~/.codex`), for the thread index in its `state_<n>.sqlite`.
+        public var codexHome: URL?
 
-        public init(claudeProjects: URL, codexRoots: [URL], openCodeDatabase: URL, piSessions: URL, geminiTmp: URL) {
+        public init(claudeProjects: URL, codexRoots: [URL], openCodeDatabase: URL, piSessions: URL, geminiTmp: URL, codexHome: URL? = nil) {
             self.claudeProjects = claudeProjects
             self.codexRoots = codexRoots
             self.openCodeDatabase = openCodeDatabase
             self.piSessions = piSessions
             self.geminiTmp = geminiTmp
+            self.codexHome = codexHome
         }
 
         public static var `default`: Sources {
@@ -30,7 +33,8 @@ public actor TokenLedger {
                            codexRoots: [home.appendingPathComponent(".codex/sessions"), home.appendingPathComponent(".codex/archived_sessions")],
                            openCodeDatabase: home.appendingPathComponent(".local/share/opencode/opencode.db"),
                            piSessions: home.appendingPathComponent(".pi/agent/sessions"),
-                           geminiTmp: home.appendingPathComponent(".gemini/tmp"))
+                           geminiTmp: home.appendingPathComponent(".gemini/tmp"),
+                           codexHome: home.appendingPathComponent(".codex"))
         }
     }
 
@@ -66,11 +70,13 @@ public actor TokenLedger {
         let horizon = TokenUsageReport.Window.year.start(before: now, calendar: calendar)
         var live = Set<String>()
         var records: [TokenRecord] = []
+        var readCodexThreads = Set<String>()
         let jsonl: [(URL, Format)] = [(sources.claudeProjects, .claude), (sources.piSessions, .pi)] + sources.codexRoots.map { ($0, .codex) }
         for (root, format) in jsonl {
             for file in Self.files(under: root, extension: "jsonl", modifiedAfter: horizon) {
                 live.insert(file.path)
                 records += read(file, format: format)
+                if format == .codex { readCodexThreads.insert(String(file.deletingPathExtension().lastPathComponent.suffix(36))) }
             }
         }
         for file in Self.files(under: sources.geminiTmp, extension: "json", modifiedAfter: horizon)
@@ -81,6 +87,9 @@ public actor TokenLedger {
         // Files that were deleted, or aged out of the year, are forgotten.
         files = files.filter { live.contains($0.key) }
         records += Self.openCode(database: sources.openCodeDatabase, since: horizon)
+        if let codexHome = sources.codexHome {
+            records += Self.codexThreads(home: codexHome, since: horizon, skipping: readCodexThreads)
+        }
         return TokenUsageReport.build(records: records.filter { $0.at > horizon }, now: now, calendar: calendar)
     }
 
@@ -309,6 +318,44 @@ public actor TokenLedger {
             guard count.total > 0 else { return nil }
             return TokenRecord(at: Date(timeIntervalSince1970: ms / 1000), agent: .opencode, model: row[1] ?? "", count: count)
         }
+    }
+
+    /// Codex also keeps a row per thread in `~/.codex/state_<n>.sqlite` with the thread's running
+    /// total. A thread whose rollout was not read (deleted, or never written as a file) still
+    /// counts, once, at the time it was last used. That total is not split by kind, so it counts
+    /// as input. Threads whose rollout was read (`skipping`, by id) or is on disk are left out.
+    static func codexThreads(home: URL, since horizon: Date, skipping read: Set<String>) -> [TokenRecord] {
+        guard let database = codexStateDatabase(in: home) else { return [] }
+        let since = Int64(horizon.timeIntervalSince1970)
+        // `model` and `updated_at_ms` came later than the table; an older store still counts.
+        let columns = ["COALESCE(updated_at_ms, updated_at * 1000), model", "updated_at * 1000, NULL"]
+        for timeAndModel in columns {
+            let rows = SQLiteReader.rows(database: database, sql: """
+                SELECT id, rollout_path, \(timeAndModel), tokens_used FROM threads
+                WHERE tokens_used > 0 AND updated_at > \(since) LIMIT 100000
+                """)
+            guard !rows.isEmpty else { continue }
+            return rows.compactMap { row in
+                guard row.count >= 5, let id = row[0], !read.contains(id), let ms = row[2].flatMap(Double.init), ms.isFinite else { return nil }
+                if let path = row[1], !path.isEmpty, FileManager.default.fileExists(atPath: path) { return nil }
+                let tokens = TokenCount.field(row[4].flatMap(Double.init).map(NSNumber.init(value:)))
+                guard tokens > 0 else { return nil }
+                return TokenRecord(at: Date(timeIntervalSince1970: ms / 1000), agent: .codex, model: row[3] ?? "",
+                                   count: TokenCount(input: tokens), key: "codex-thread:\(id)")
+            }
+        }
+        return []
+    }
+
+    /// The newest `state_<n>.sqlite` in Codex's home: the number is its schema generation.
+    static func codexStateDatabase(in home: URL) -> URL? {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: home.path)) ?? []
+        let newest = names.compactMap { name -> (Int, String)? in
+            guard name.hasPrefix("state_"), name.hasSuffix(".sqlite"),
+                  let n = Int(name.dropFirst("state_".count).dropLast(".sqlite".count)) else { return nil }
+            return (n, name)
+        }.max { $0.0 < $1.0 }
+        return newest.map { home.appendingPathComponent($0.1) }
     }
 
     /// ISO 8601 strings (with or without fractions) and epoch milliseconds.

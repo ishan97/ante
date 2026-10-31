@@ -55,8 +55,9 @@ extension WorkspaceRuntime {
     private func deliverPendingResume(_ command: String, to session: SessionID) {
         resumeWaiters.removeValue(forKey: session)?.forEach { $0.cancel() }
         guard pendingResumes.remove(session) != nil, let controller = liveController(for: session) else { return }
-        // If the person already started typing, do not type over them.
-        if let typed = controller.lastInputAt, typed > Date().addingTimeInterval(-10) { return }
+        // If the person already started typing, do not type over them. Return or an arrow to
+        // wake the pane leaves the line empty, so it does not count.
+        if let typed = controller.lastTypedAt, typed > Date().addingTimeInterval(-10) { return }
         controller.view.send(txt: command + "\n")
     }
 }

@@ -272,9 +272,12 @@ public final class WorkspaceRuntime {
     /// The controller that stands for a session: the focused pane's if it belongs to the session,
     /// else the first pane's.
     private func primaryController(for id: SessionID) -> TerminalSessionController? {
+        primaryPane(for: id).flatMap { controllers[$0] }
+    }
+
+    private func primaryPane(for id: SessionID) -> PaneID? {
         guard let tree = existingLayout(for: id) else { return nil }
-        let pane = tree.paneIDs.first { $0 == focusedPaneID } ?? tree.paneIDs.first
-        return pane.flatMap { controllers[$0] }
+        return tree.paneIDs.first { $0 == focusedPaneID } ?? tree.paneIDs.first
     }
 
     private func closedSession(for session: Session) -> ClosedSession {
@@ -284,10 +287,14 @@ public final class WorkspaceRuntime {
         // saved layout still knows which agent ran where.
         let savedAgentPane = controller == nil ? session.layout?.panes.first { $0.agent?.isAgent == true } : nil
         let cwd = controller?.currentDirectory ?? savedAgentPane?.workingDirectory ?? session.workingDirectory
+        // The conversation's own id, so History resumes it rather than opening a bare shell.
+        // Same pane as `controller`, so the id belongs to the conversation the entry describes.
+        let liveAgentPane = primaryPane(for: session.id).map(savedPane)
         return ClosedSession(name: session.name, workingDirectory: cwd.path,
                              projectPath: project?.rootDirectory.path ?? cwd.path,
                              lastCommand: controller?.foregroundCommand.map(Self.programName) ?? session.lastCommand,
-                             agent: controller?.agent ?? savedAgentPane?.agent ?? .shell)
+                             agent: controller?.agent ?? savedAgentPane?.agent ?? .shell,
+                             agentSessionID: liveAgentPane?.agentSessionID ?? savedAgentPane?.agentSessionID)
     }
 
     /// Only sessions with an agent in the foreground go to History: an agent session can be

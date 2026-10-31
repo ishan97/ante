@@ -51,6 +51,9 @@ struct WorkspaceToolbar: View {
                 toolbarButton("rectangle.tophalf.inset.filled", help: "Split Up (\(runtime.config.keys.splitUp.display))") { runtime.splitFocusedPane(axis: .vertical, before: true) }
                 toolbarButton("rectangle.bottomhalf.inset.filled", help: "Split Down (\(runtime.config.keys.splitDown.display))") { runtime.splitFocusedPane(axis: .vertical) }
             }
+            // The chip appears smoothly, not with a jump of the toolbar. Only on that change: its
+            // popover cannot be open before the chip exists.
+            .animation(.easeOut(duration: 0.25), value: runtime.tokens.report.map { !$0.isEmpty } ?? false)
             // Scans only while there is a toolbar to show the result in.
             .task { await runtime.tokens.keepFresh() }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
@@ -80,7 +83,10 @@ struct WorkspaceToolbar: View {
                     Text(TokenUsageModel.compact(day))
                         .font(.system(size: 11, weight: .semibold)).monospacedDigit()
                         .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.25), value: day)
                 }
+                // Never squeezed to "4…" by a long path beside it.
+                .fixedSize()
                 .foregroundStyle(AnteStyle.textSecondary)
                 .frame(height: 22)
                 .padding(.horizontal, 4)

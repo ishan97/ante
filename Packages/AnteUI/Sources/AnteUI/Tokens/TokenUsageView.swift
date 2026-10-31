@@ -48,9 +48,13 @@ struct TokenUsageView: View {
         }
     }
 
+    // Every window shows the same rows (the year's agents, the same number of model lines), so
+    // picking one never resizes the popover: a toolbar popover that resizes while it animates can
+    // throw AppKit's "more Update Constraints in Window passes than there are views" and crash.
     @ViewBuilder
     private func content(_ report: TokenUsageReport) -> some View {
         let slice = report.slice(model.selected)
+        let year = report.slice(.year)
         VStack(alignment: .leading, spacing: 2) {
             Text("Last \(model.selected.label)".uppercased())
                 .font(.system(size: 10, weight: .semibold)).tracking(0.6)
@@ -60,6 +64,7 @@ struct TokenUsageView: View {
                     .font(.system(size: 34, weight: .medium, design: .rounded)).monospacedDigit()
                     .foregroundStyle(AnteStyle.textPrimary)
                     .contentTransition(.numericText())
+                    .animation(.easeOut(duration: 0.15), value: slice.total)
                 Text("tokens")
                     .font(AnteStyle.uiFont)
                     .foregroundStyle(AnteStyle.textSecondary)
@@ -71,60 +76,84 @@ struct TokenUsageView: View {
         }
         .accessibilityElement(children: .combine)
 
-        if slice.total > 0 {
-            agentBar(slice)
-        }
+        agentBar(slice, legend: Self.legend(slice, year: year))
 
         Divider().overlay(AnteStyle.hairline)
 
         VStack(spacing: 1) {
-            let year = max(report.slice(.year).total, 1)
+            let yearTotal = max(year.total, 1)
             ForEach(TokenUsageReport.Window.allCases) { window in
-                windowRow(window, total: report.slice(window).total, of: year)
+                windowRow(window, total: report.slice(window).total, of: yearTotal)
             }
         }
 
-        if slice.total > 0 {
-            Divider().overlay(AnteStyle.hairline)
-            kinds(slice.count)
-            models(slice)
-        }
+        Divider().overlay(AnteStyle.hairline)
+        kinds(slice.count)
+        models(slice, year: year)
     }
 
     // MARK: - Pieces
 
+    /// Every agent with tokens in the last year, in the year's order, with what it used in
+    /// `slice` (zero when it sat this window out, so it still shows as tracked).
+    static func legend(_ slice: TokenUsageReport.Slice, year: TokenUsageReport.Slice) -> [TokenUsageReport.AgentShare] {
+        year.byAgent.map { share in
+            TokenUsageReport.AgentShare(agent: share.agent, tokens: slice.byAgent.first { $0.agent == share.agent }?.tokens ?? 0)
+        }
+    }
+
+    /// The model lines for `slice`: always `min(year's models, 5)` lines, so the popover keeps
+    /// its height. Past five, the last line sums the rest; `blanks` pads a quieter window.
+    static func modelLines(_ slice: TokenUsageReport.Slice, year: TokenUsageReport.Slice)
+        -> (shown: [TokenUsageReport.Share], more: (count: Int, tokens: Int)?, blanks: Int) {
+        let lines = min(max(year.byModel.count, slice.byModel.count), 5)
+        if slice.byModel.count <= lines {
+            return (slice.byModel, nil, lines - slice.byModel.count)
+        }
+        let shown = Array(slice.byModel.prefix(lines - 1))
+        let rest = slice.byModel.dropFirst(lines - 1)
+        return (shown, (rest.count, rest.reduce(0) { $0 + $1.tokens }), 0)
+    }
+
     /// One bar split by agent, with a legend underneath.
-    private func agentBar(_ slice: TokenUsageReport.Slice) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private func agentBar(_ slice: TokenUsageReport.Slice, legend: [TokenUsageReport.AgentShare]) -> some View {
+        let used = legend.filter { $0.tokens > 0 }
+        return VStack(alignment: .leading, spacing: 8) {
             GeometryReader { proxy in
-                let gaps = CGFloat(max(slice.byAgent.count - 1, 0)) * 2
+                let gaps = CGFloat(max(used.count - 1, 0)) * 2
+                let width = max(proxy.size.width - gaps, 0)
                 HStack(spacing: 2) {
-                    ForEach(slice.byAgent) { share in
+                    ForEach(used) { share in
                         Rectangle()
                             .fill(share.agent.tokenColor)
-                            .frame(width: max(2, (proxy.size.width - gaps) * CGFloat(share.tokens) / CGFloat(max(slice.total, 1))))
+                            .frame(width: max(2, width * CGFloat(share.tokens) / CGFloat(max(slice.total, 1))))
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AnteStyle.rowHover)
                 .clipShape(Capsule())
+                .animation(.easeOut(duration: 0.15), value: slice.total)
             }
             .frame(height: 6)
             VStack(spacing: 4) {
-                ForEach(slice.byAgent) { share in
+                ForEach(legend) { share in
+                    let idle = share.tokens == 0
                     HStack(spacing: 6) {
-                        Circle().fill(share.agent.tokenColor).frame(width: 7, height: 7)
+                        Circle().fill(share.agent.tokenColor.opacity(idle ? 0.35 : 1)).frame(width: 7, height: 7)
                         Text(share.agent.displayName)
                             .font(AnteStyle.uiFont)
-                            .foregroundStyle(AnteStyle.textPrimary)
+                            .foregroundStyle(idle ? AnteStyle.textSecondary : AnteStyle.textPrimary)
                         Spacer()
-                        Text(TokenUsageModel.compact(share.tokens))
+                        Text(idle ? "—" : TokenUsageModel.compact(share.tokens))
                             .font(AnteStyle.uiFont).monospacedDigit()
-                            .foregroundStyle(AnteStyle.textPrimary)
+                            .foregroundStyle(idle ? AnteStyle.textSecondary : AnteStyle.textPrimary)
                         Text(Self.percent(share.tokens, of: slice.total))
                             .font(AnteStyle.captionFont).monospacedDigit()
                             .foregroundStyle(AnteStyle.textSecondary)
                             .frame(width: 34, alignment: .trailing)
                     }
                     .accessibilityElement(children: .combine)
+                    .accessibilityLabel(idle ? "\(share.agent.displayName): none in the last \(model.selected.label)" : "\(share.agent.displayName): \(share.tokens.formatted()) tokens")
                 }
             }
         }
@@ -133,7 +162,7 @@ struct TokenUsageView: View {
     private func windowRow(_ window: TokenUsageReport.Window, total: Int, of year: Int) -> some View {
         let isSelected = model.selected == window
         return Button {
-            withAnimation(.easeOut(duration: 0.15)) { model.selected = window }
+            model.selected = window
         } label: {
             HStack(spacing: 10) {
                 Text(window.label)
@@ -196,21 +225,29 @@ struct TokenUsageView: View {
     }
 
     @ViewBuilder
-    private func models(_ slice: TokenUsageReport.Slice) -> some View {
-        let top = Array(slice.byModel.prefix(4))
-        let rest = slice.byModel.dropFirst(4).reduce(0) { $0 + $1.tokens }
+    private func models(_ slice: TokenUsageReport.Slice, year: TokenUsageReport.Slice) -> some View {
+        let lines = Self.modelLines(slice, year: year)
         VStack(alignment: .leading, spacing: 4) {
             Text("MODELS")
                 .font(.system(size: 10, weight: .semibold)).tracking(0.6)
                 .foregroundStyle(AnteStyle.textSecondary)
-            ForEach(top) { share in
+            ForEach(lines.shown) { share in
                 modelRow(share.name, share.tokens, of: slice.total)
             }
-            if rest > 0 {
-                modelRow("\(slice.byModel.count - 4) more", rest, of: slice.total, isSummary: true)
+            if let more = lines.more {
+                modelRow("\(more.count) more", more.tokens, of: slice.total, isSummary: true)
+            }
+            ForEach(0..<lines.blanks, id: \.self) { index in
+                Text(index == 0 && lines.shown.isEmpty ? "None in the last \(model.selected.label)" : " ")
+                    .font(AnteStyle.captionFont)
+                    .foregroundStyle(AnteStyle.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: Self.modelLineHeight, maxHeight: Self.modelLineHeight, alignment: .leading)
             }
         }
     }
+
+    /// Every model line is this tall, blank or not, so the section's height is fixed.
+    static let modelLineHeight: CGFloat = 16
 
     private func modelRow(_ name: String, _ tokens: Int, of total: Int, isSummary: Bool = false) -> some View {
         HStack(spacing: 6) {
@@ -227,6 +264,7 @@ struct TokenUsageView: View {
                 .foregroundStyle(AnteStyle.textSecondary)
                 .frame(width: 34, alignment: .trailing)
         }
+        .frame(height: Self.modelLineHeight)
         .accessibilityElement(children: .combine)
     }
 
@@ -264,7 +302,7 @@ struct TokenUsageView: View {
     }
 
     static func percent(_ part: Int, of whole: Int) -> String {
-        guard whole > 0 else { return "" }
+        guard whole > 0, part > 0 else { return "" }
         let share = Double(part) / Double(whole) * 100
         return share < 1 ? "<1%" : "\(Int(share.rounded()))%"
     }

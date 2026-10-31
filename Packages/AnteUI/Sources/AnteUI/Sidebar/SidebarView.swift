@@ -11,19 +11,50 @@ struct SidebarView: View {
     @Environment(\.anteAccent) private var accent
     @Bindable var runtime: WorkspaceRuntime
 
+    /// The scrolling list's own coordinate space: rows, headers and the drag all report in it.
+    static let listSpace = "ante.sidebar.list"
+
+    /// A session being dragged to another place or project.
+    private struct SessionDrag: Equatable {
+        let session: SessionID
+        let name: String
+        var location: CGPoint
+        var target: SidebarDropTarget?
+    }
+
+    @State private var drag: SessionDrag?
+    @State private var rowFrames: [SessionID: CGRect] = [:]
+    @State private var headerFrames: [ProjectID: CGRect] = [:]
+
     var body: some View {
         VStack(spacing: 0) {
             // Clear the traffic lights: the window has no title bar, so the sidebar starts under them.
             Color.clear.frame(height: AnteStyle.toolbarHeight)
             sessionsEntry
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
+                // Not lazy: a drag needs the frames of every row, and rows a lazy stack has not
+                // built (or has let go of) would report none, or stale ones.
+                VStack(alignment: .leading, spacing: 2) {
                     ForEach(runtime.store.state.orderedProjects) { project in
                         projectSection(project)
                     }
                 }
                 .padding(.top, 6)
                 .padding(.bottom, 12)
+                .overlay(alignment: .topLeading) { dragOverlay }
+                .coordinateSpace(name: Self.listSpace)
+                // A row closed mid-drag never reports its drop: let go of it here, and of the
+                // frames of rows and headers that are gone.
+                .onChange(of: runtime.store.state.sessions.map(\.id)) { _, ids in
+                    let live = Set(ids)
+                    if let session = drag?.session, !live.contains(session) { drag = nil }
+                    rowFrames = rowFrames.filter { live.contains($0.key) }
+                }
+                .onChange(of: runtime.store.state.projects.map(\.id)) { _, ids in
+                    let live = Set(ids)
+                    headerFrames = headerFrames.filter { live.contains($0.key) }
+                }
+                .onDisappear { drag = nil }
             }
             Divider().overlay(AnteStyle.hairline)
             footer
@@ -84,17 +115,77 @@ struct SidebarView: View {
             controller: liveController(for: session.id),
             onSelect: { runtime.open(session: session.id) },
             onRename: { name in runtime.store.renameSession(session.id, to: name) },
-            onClose: { runtime.closeSession(session.id) }
+            onClose: { runtime.closeSession(session.id) },
+            moveTargets: runtime.store.state.orderedProjects.filter { $0.id != session.projectID },
+            onMove: { project in runtime.store.moveSession(session.id, to: project, at: .max) },
+            onDrag: { location in dragChanged(session, to: location) },
+            onDrop: { location in dropped(session.id, at: location) },
+            isDragged: drag?.session == session.id
         )
         .padding(.horizontal, 8)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.listSpace)) } action: { rowFrames[session.id] = $0 }
+    }
+
+    // MARK: - Drag and drop
+
+    private func dragChanged(_ session: Session, to location: CGPoint) {
+        var next = drag ?? SessionDrag(session: session.id, name: session.name, location: location)
+        next.location = location
+        next.target = SidebarDropTarget.at(location, width: AnteStyle.sidebarWidth, sections: dropSections(), dragging: session.id)
+        if next != drag { drag = next }
+    }
+
+    /// `location` nil: the drag was cancelled.
+    private func dropped(_ session: SessionID, at location: CGPoint?) {
+        defer { drag = nil }
+        guard let location, drag?.session == session,
+              let target = SidebarDropTarget.at(location, width: AnteStyle.sidebarWidth, sections: dropSections(), dragging: session) else { return }
+        runtime.store.moveSession(session, to: target.project, at: target.index)
+    }
+
+    private func dropSections() -> [SidebarDropTarget.Section] {
+        runtime.store.state.orderedProjects.compactMap { project in
+            guard let header = headerFrames[project.id] else { return nil }
+            let rows = runtime.store.visibleSessions(in: project.id).compactMap { s in rowFrames[s.id].map { (id: s.id, frame: $0) } }
+            return SidebarDropTarget.Section(project: project.id, header: header, rows: rows)
+        }
+    }
+
+    /// The insertion line, and the dragged session's name following the pointer.
+    @ViewBuilder
+    private var dragOverlay: some View {
+        if let drag {
+            ZStack(alignment: .topLeading) {
+                if let target = drag.target {
+                    Capsule()
+                        .fill(accent)
+                        .frame(width: AnteStyle.sidebarWidth - 28, height: 2)
+                        .offset(x: 14, y: target.lineY - 1)
+                }
+                Text(drag.name)
+                    .font(AnteStyle.uiFontSemibold)
+                    .foregroundStyle(AnteStyle.textPrimary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .frame(height: 24)
+                    .background(RoundedRectangle(cornerRadius: AnteStyle.radius, style: .continuous).fill(AnteStyle.rowSelected))
+                    .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+                    .frame(maxWidth: AnteStyle.sidebarWidth - 40, alignment: .leading)
+                    .offset(x: 20, y: drag.location.y - 12)
+                    .opacity(drag.target == nil ? 0.5 : 0.95)
+            }
+            .allowsHitTesting(false)
+        }
     }
 
     private func projectHeader(_ project: Project) -> some View {
-        HStack {
+        let isDropTarget = drag?.target?.project == project.id
+            && runtime.store.state.sessions.first { $0.id == drag?.session }?.projectID != project.id
+        return HStack {
             Text(project.name.uppercased())
                 .font(AnteStyle.captionFont)
                 .tracking(0.6)
-                .foregroundStyle(AnteStyle.textSecondary)
+                .foregroundStyle(isDropTarget ? accent : AnteStyle.textSecondary)
                 .lineLimit(1)
             Spacer()
             Button {
@@ -110,6 +201,7 @@ struct SidebarView: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 4)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.listSpace)) } action: { headerFrames[project.id] = $0 }
         .popover(isPresented: isNewFolderVisible(anchor: project.id), arrowEdge: .trailing) {
             NewFolderView(runtime: runtime)
         }

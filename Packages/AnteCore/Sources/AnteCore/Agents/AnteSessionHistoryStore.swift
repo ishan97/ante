@@ -10,9 +10,12 @@ public struct ClosedSession: Codable, Hashable, Sendable, Identifiable {
     public var lastCommand: String?
     public var agent: AgentKind
     public var closedAt: Date
+    /// The agent's own id for the conversation, when Ante knew it. Absent in entries filed
+    /// before 1.6.
+    public var agentSessionID: String?
 
     public init(id: String = UUID().uuidString, name: String, workingDirectory: String, projectPath: String,
-                lastCommand: String?, agent: AgentKind, closedAt: Date = Date()) {
+                lastCommand: String?, agent: AgentKind, closedAt: Date = Date(), agentSessionID: String? = nil) {
         self.id = id
         self.name = name
         self.workingDirectory = workingDirectory
@@ -20,11 +23,19 @@ public struct ClosedSession: Codable, Hashable, Sendable, Identifiable {
         self.lastCommand = lastCommand
         self.agent = agent
         self.closedAt = closedAt
+        self.agentSessionID = agentSessionID
+    }
+
+    /// Picking it up again resumes the exact conversation when its id is known, else opens the
+    /// agent's session picker in the folder: never a bare shell, which looks like nothing happened.
+    /// The command is rebuilt from the agent and the (validated) id, never read from the file.
+    public var resumeCommand: String? {
+        agentSessionID.flatMap { agent.resumeCommand(sessionID: $0) } ?? agent.pickerCommand
     }
 
     public var asPastSession: PastSession {
         PastSession(id: "ante-\(id)", agent: agent, title: name, projectPath: workingDirectory,
-                    createdAt: closedAt, modifiedAt: closedAt, detail: lastCommand, resumeCommand: nil)
+                    createdAt: closedAt, modifiedAt: closedAt, detail: lastCommand, resumeCommand: resumeCommand)
     }
 }
 

@@ -129,12 +129,30 @@ public final class WorkspaceStore {
             .filter { $0.projectID == moving.projectID && $0.id != id && !$0.isScratch }
             .sorted { $0.order < $1.order }
         siblings.insert(moving, at: max(0, min(order, siblings.count)))
-        for (position, sibling) in siblings.enumerated() {
-            if let index = state.sessions.firstIndex(where: { $0.id == sibling.id }) {
+        renumber(siblings)
+        scheduleSave()
+    }
+
+    /// Moves a session into `projectID` at `order` among its sessions (the sidebar's drag and
+    /// drop). Its terminal keeps running and its folder stays; only where it is listed changes.
+    public func moveSession(_ id: SessionID, to projectID: ProjectID, at order: Int) {
+        guard let index = state.sessions.firstIndex(where: { $0.id == id }), !state.sessions[index].isScratch,
+              state.projects.contains(where: { $0.id == projectID }) else { return }
+        let from = state.sessions[index].projectID
+        state.sessions[index].projectID = projectID
+        if from != projectID {
+            // Close the gap it left behind.
+            renumber(state.sessions.filter { $0.projectID == from && !$0.isScratch }.sorted { $0.order < $1.order })
+        }
+        moveSession(id, toOrder: order)
+    }
+
+    private func renumber(_ ordered: [Session]) {
+        for (position, session) in ordered.enumerated() {
+            if let index = state.sessions.firstIndex(where: { $0.id == session.id }) {
                 state.sessions[index].order = position
             }
         }
-        scheduleSave()
     }
 
     public func focus(_ id: SessionID?) {

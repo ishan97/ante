@@ -100,6 +100,7 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         case .codex: return "codex resume"
         case .opencode: return "opencode"
         case .pi: return "pi"
+        case .gemini: return "gemini"
         default: return nil
         }
     }
