@@ -34,6 +34,9 @@ public final class AnteTerminalView: LocalProcessTerminalView {
     /// Called on the main thread when that input put text on the line: a printable key, a paste
     /// or dropped paths. Not for Return, Esc, arrows or control keys.
     public var onTyping: (() -> Void)?
+    /// Called on the main thread when the user presses ⌘⌫ in this terminal. The key is consumed;
+    /// the owner types whatever erases the current program's input (see `InputEraser`).
+    public var onEraseInput: (() -> Void)?
     /// Called on the main thread when the view (re)joins a window. Programs redraw on attach and
     /// resize, so the output that follows says nothing about whether they are busy.
     public var onAttached: (() -> Void)?
@@ -93,13 +96,27 @@ public final class AnteTerminalView: LocalProcessTerminalView {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // ⌘-shortcuts (switching sessions, splitting, the palette) are not typing: counting them
             // would make a fresh pane skip the resume command it is waiting to type.
-            if let self, event.window === self.window, self.window?.firstResponder === self,
-               !event.modifierFlags.contains(.command) {
+            guard let self, event.window === self.window, self.window?.firstResponder === self else { return event }
+            // While an input method is composing, ⌘⌫ belongs to it.
+            if Self.isEraseInput(event), !self.hasMarkedText() {
+                // SwiftTerm drops ⌘⌫ (no handler for deleteToBeginningOfLine:), so it is ours.
+                // Clearing a draft answers nothing, so it is not user input either. Holding the
+                // key does not restart the sequence fifteen times a second.
+                if !event.isARepeat { self.onEraseInput?() }
+                return nil
+            }
+            if !event.modifierFlags.contains(.command) {
                 self.onUserInput?()
                 if Self.isTyping(event) { self.onTyping?() }
             }
             return event
         }
+    }
+
+    /// ⌘⌫ with no other modifier (Caps Lock aside): erase everything typed at the prompt.
+    static func isEraseInput(_ event: NSEvent) -> Bool {
+        let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        return mods == .command && event.keyCode == 51   // kVK_Delete, the ⌫ key
     }
 
     deinit {

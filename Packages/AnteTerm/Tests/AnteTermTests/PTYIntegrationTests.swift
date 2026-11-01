@@ -110,6 +110,93 @@ final class PTYIntegrationTests: XCTestCase {
         XCTAssertNil(TerminalSessionController.normalizedExitCode(nil))
     }
 
+    // MARK: - ⌘⌫
+
+    private func waitUntil(_ timeout: TimeInterval = 5, _ condition: () -> Bool) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline, !condition() { try? await Task.sleep(for: .milliseconds(20)) }
+    }
+
+    func testEraseInputClearsTheShellLineWhereverTheCursorIs() async {
+        let launch = ShellLaunch(executable: "/bin/zsh", arguments: ["-f"],
+                                 environment: ["PATH=/usr/bin:/bin", "HOME=\(NSHomeDirectory())", "TERM=xterm-256color", "PS1=$ "],
+                                 kind: .other)
+        let controller = TerminalSessionController(sessionID: SessionID(), launch: launch,
+                                                   workingDirectory: URL(fileURLWithPath: "/tmp"), bus: RunEventBus())
+        controller.start()
+        try? await Task.sleep(for: .milliseconds(500))
+        controller.view.send(txt: "echo hello world")
+        controller.view.send(txt: "\u{1b}[D\u{1b}[D\u{1b}[D\u{1b}[D\u{1b}[D")   // cursor into "world"
+        try? await Task.sleep(for: .milliseconds(150))
+        controller.eraseInput()
+        try? await Task.sleep(for: .milliseconds(150))
+        controller.view.send(txt: "echo ERASED-$((40+2))\n")
+        // Had anything of "echo hello world" survived, the shell would print something else.
+        func lines() -> [String] {
+            String(decoding: controller.view.getTerminal().getBufferAsData(), as: UTF8.self)
+                .split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+        await waitUntil { lines().contains("ERASED-42") }
+        XCTAssertTrue(lines().contains("ERASED-42"), lines().joined(separator: " / "))
+        XCTAssertFalse(lines().contains { $0.contains("hello") || $0.contains("world") }, lines().joined(separator: " / "))
+        controller.terminate()
+        await waitForExit(controller)
+    }
+
+    /// A stand-in `claude` that records the bytes it receives, raw, up to `count`: `dd` via a
+    /// symlink of that name, so the foreground probe sees a process called claude (a shell script
+    /// would be `sh`). Returns the running controller and the file the bytes land in.
+    private func startFakeClaude(count: Int) async throws -> (TerminalSessionController, received: URL, cleanup: () -> Void) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ante-erase-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let received = dir.appendingPathComponent("received")
+        let fake = dir.appendingPathComponent("claude")
+        try FileManager.default.createSymbolicLink(atPath: fake.path, withDestinationPath: "/bin/dd")
+        let controller = makeController(
+            script: "stty raw -echo; printf ready; exec '\(fake.path)' bs=1 count=\(count) of='\(received.path)' 2>/dev/null",
+            bus: RunEventBus())
+        controller.start()
+        await waitUntil { String(decoding: controller.view.getTerminal().getBufferAsData(), as: UTF8.self).contains("ready") }
+        try? await Task.sleep(for: .milliseconds(100))   // past the exec
+        return (controller, received, { try? FileManager.default.removeItem(at: dir) })
+    }
+
+    private let claudeChunks = InputEraser.chunks(for: .claude, commandLine: ["claude"])
+
+    func testEraseInputTypesClaudesRoundsAtAProgramNamedClaude() async throws {
+        let expected = claudeChunks.flatMap { $0 }
+        let (controller, received, cleanup) = try await startFakeClaude(count: expected.count)
+        defer { cleanup() }
+        controller.eraseInput()
+        XCTAssertEqual(controller.agent, .claude)
+        await waitForExit(controller)
+        XCTAssertEqual(Array(try Data(contentsOf: received)), expected)
+    }
+
+    func testASecondEraseRestartsTheSequence() async throws {
+        // The first press's later chunks are dropped; the second press sends the whole sequence.
+        let expected = claudeChunks[0] + claudeChunks.flatMap { $0 }
+        let (controller, received, cleanup) = try await startFakeClaude(count: expected.count)
+        defer { cleanup() }
+        controller.eraseInput()
+        controller.eraseInput()
+        await waitForExit(controller)
+        XCTAssertEqual(Array(try Data(contentsOf: received)), expected)
+    }
+
+    func testTypingStopsAnEraseStillInProgress() async throws {
+        // Keys typed right after ⌘⌫ must not be erased by the rest of its rounds.
+        let (controller, received, cleanup) = try await startFakeClaude(count: 4096)
+        defer { cleanup() }
+        controller.eraseInput()
+        controller.view.onUserInput?()   // what the key monitor and paste report before the key goes out
+        controller.view.send(txt: "x")
+        try? await Task.sleep(for: .milliseconds(Int(InputEraser.chunkInterval * 1000) * claudeChunks.count + 300))
+        controller.terminate()
+        await waitForExit(controller)
+        XCTAssertEqual(Array(try Data(contentsOf: received)), claudeChunks[0] + Array("x".utf8))
+    }
+
     func testTerminateKillsARunningShell() async {
         let controller = makeController(script: "sleep 30", bus: RunEventBus())
         controller.start()

@@ -112,6 +112,7 @@ brings them all back).
 | ⌘1–9, ⌘⇧[ ] | jump between sessions |
 | ⌘F | find in scrollback |
 | ⌘K | clear pane |
+| ⌘⌫ | erase everything you have typed at the prompt — all of a Claude Code or Codex draft, however many lines, or the shell's line — without Esc, so a running agent keeps going. Other programs get ⌃U, as in iTerm2 (⌥⌫ deletes a word) |
 | ⌘↩ | fill screen (menu bar and Dock slide away); press again to go back. The hotkey hides and shows the window as it is |
 | ⌘= / ⌘- / ⌘0 | bigger / smaller / actual text size (Monaco 12 by default, like iTerm2) |
 | ⌘⇧S | sessions board |

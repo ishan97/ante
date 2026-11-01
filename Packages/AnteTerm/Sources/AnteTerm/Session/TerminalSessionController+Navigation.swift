@@ -63,6 +63,30 @@ extension TerminalSessionController {
         view.clearSearch()
     }
 
+    /// ⌘⌫: erase everything typed at the prompt of whatever is in the foreground — Claude Code's
+    /// multi-line draft, the shell's line — without Esc, so a running agent keeps running.
+    public func eraseInput() {
+        guard state == .running else { return }
+        probeNow()   // the two-second sample may predate `claude` starting or exiting
+        let chunks = InputEraser.chunks(for: agent, commandLine: foreground?.commandLine ?? [])
+        eraseGeneration &+= 1
+        let generation = eraseGeneration
+        for (index, chunk) in chunks.enumerated() {
+            if index == 0 {
+                view.send(chunk)
+                continue
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + InputEraser.chunkInterval * Double(index)) { [weak self] in
+                MainActor.assumeIsolated {
+                    // A newer ⌘⌫ restarts the sequence, and typing or pasting stops it (the rest
+                    // would erase the new text); the pane may have exited meanwhile.
+                    guard let self, self.eraseGeneration == generation, self.state == .running else { return }
+                    self.view.send(chunk)
+                }
+            }
+        }
+    }
+
     /// ⌘K: wipe the screen and scrollback locally (ESC[3J ESC[H ESC[2J), then, if the shell is
     /// sitting at a prompt, ask it to redraw with ^L so the prompt reappears at the top.
     public func clearScreen() {

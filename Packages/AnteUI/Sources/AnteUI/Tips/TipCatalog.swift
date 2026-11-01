@@ -61,6 +61,9 @@ public enum TipCatalog {
             Tip(id: "focus-timer", symbol: "timer", [
                 .text("The timer in the toolbar runs focus blocks: \(focusMinutes) minutes on, \(breakMinutes) off, a longer break every fourth."),
             ]),
+            Tip(id: "erase-input", symbol: "delete.left", [
+                .key("⌘⌫"), .text(" erases everything you have typed, even a long Claude prompt, without Esc — a running agent keeps working."),
+            ]),
             Tip(id: "find", symbol: "magnifyingglass", [
                 .key(keys.find.display), .text(" searches the scrollback of the focused pane."),
             ]),

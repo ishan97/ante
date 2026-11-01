@@ -64,6 +64,8 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
         return info.commandLine.joined(separator: " ")
     }
     private var probeTimer: Timer?
+    /// Bumped by each ⌘⌫ and by user input, so the delayed writes of an earlier ⌘⌫ stop (see `eraseInput`).
+    var eraseGeneration = 0
 
     private let launch: ShellLaunch
     private let workingDirectory: URL
@@ -99,9 +101,13 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
                 }
             }
         }
-        view.onUserInput = { [weak self] in self?.lastInputAt = Date() }
+        view.onUserInput = { [weak self] in
+            self?.lastInputAt = Date()
+            self?.eraseGeneration &+= 1   // stop a ⌘⌫ still typing, before it erases these keys
+        }
         view.onTyping = { [weak self] in self?.lastTypedAt = Date() }
         view.onAttached = { [weak self] in self?.ignoreRedrawOutput() }
+        view.onEraseInput = { [weak self] in self?.eraseInput() }
         let marks = promptMarks
         view.onScreenCleared = { marks.invalidateAll() }
         view.onSemanticEventSync = { [weak view] event in
