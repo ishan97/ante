@@ -3,6 +3,15 @@
     <channel>
         <title>Ante</title>
         <item>
+            <title>1.7.0</title>
+            <pubDate>Tue, 03 Nov 2026 19:24:10 +0530</pubDate>
+            <sparkle:version>167</sparkle:version>
+            <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/ishan97/ante/releases/download/v1.7.0/Ante.dmg" length="5349364" type="application/octet-stream" sparkle:edSignature="qHLvJ+MhL+htEHTKDk8iq4K7Z0vzcGxk3UvqKNPyVucmRuLZyg1269KBB3gnZm/6RfjDZ6MTvlbL8C3CgX/bAA=="/>
+        </item>
+        <item>
             <title>1.6.1</title>
             <pubDate>Sat, 31 Oct 2026 15:15:52 +0530</pubDate>
             <sparkle:version>159</sparkle:version>
@@ -19,15 +28,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <enclosure url="https://github.com/ishan97/ante/releases/download/v1.6.0/Ante.dmg" length="5340647" type="application/octet-stream" sparkle:edSignature="tdHErlsM0BbQ/l4oM95t1JpjUHqZSq/+Sr6pHiA0Wha4cBVh7ONGw4ObwPC/c60FQ/GarOud/Q4GANKHntHDAw=="/>
-        </item>
-        <item>
-            <title>1.5.0</title>
-            <pubDate>Fri, 30 Oct 2026 22:24:15 +0530</pubDate>
-            <sparkle:version>152</sparkle:version>
-            <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/ishan97/ante/releases/download/v1.5.0/Ante.dmg" length="5299017" type="application/octet-stream" sparkle:edSignature="crFdX+QLjbaDG8W8Nmwcee3/E41UoLGjGmhvdlLwT+f4ngL86Gh0OsPryTKdQOMccdanfhUNz8DAUHvTB6pPDg=="/>
         </item>
         <item>
             <title>1.2.0</title>
