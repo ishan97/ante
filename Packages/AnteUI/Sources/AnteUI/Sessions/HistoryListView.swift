@@ -8,82 +8,84 @@ struct HistoryListView: View {
     @Bindable var board: SessionBoardModel
     let onResume: (PastSession) -> Void
 
+    /// The history part of the Sessions view's one scrolling page: one section whose header (search,
+    /// agent filter, rescan) pins to the top while the days and their rows scroll under it. Must
+    /// sit inside a `LazyVStack` with pinned section headers.
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Text("History")
-                    .font(AnteStyle.uiFontSemibold)
-                    .foregroundStyle(AnteStyle.textPrimary)
-                if board.isLoadingHistory {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Text("\(board.filteredHistory.count)")
-                        .font(AnteStyle.captionFont).monospacedDigit()
-                        .foregroundStyle(AnteStyle.textSecondary)
+        Section {
+            ForEach(groups, id: \.title) { group in
+                Text(group.title.uppercased())
+                    .font(AnteStyle.captionFont).tracking(0.6)
+                    .foregroundStyle(AnteStyle.textSecondary)
+                    .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(group.rows) { row in
+                    HistoryRow(session: row).onTapGesture { onResume(row) }
+                        .padding(.vertical, 1)
                 }
-                Spacer()
-                Picker("", selection: $board.agentFilter) {
-                    Text("All agents").tag(AgentKind?.none)
-                    ForEach(board.historyAgents, id: \.self) { agent in
-                        Text(agent.displayName).tag(AgentKind?.some(agent))
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 150)
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(AnteStyle.textSecondary)
-                    TextField("", text: $board.query, prompt: Text("Search sessions"))
-                        .textFieldStyle(.plain)
-                        .font(AnteStyle.uiFont)
-                }
-                .padding(.horizontal, 8).padding(.vertical, 5)
-                .background(AnteStyle.rowHover, in: RoundedRectangle(cornerRadius: AnteStyle.radius, style: .continuous))
-                .frame(width: 240)
-                Button {
-                    Task { await board.reloadHistory() }
-                } label: {
-                    Image(systemName: "arrow.clockwise").foregroundStyle(AnteStyle.textSecondary)
-                }
-                .buttonStyle(.plain)
-                .help("Rescan")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
-                    ForEach(groups, id: \.title) { group in
-                        Section {
-                            ForEach(group.rows) { row in
-                                HistoryRow(session: row).onTapGesture { onResume(row) }
-                            }
-                        } header: {
-                            Text(group.title.uppercased())
-                                .font(AnteStyle.captionFont).tracking(0.6)
-                                .foregroundStyle(AnteStyle.textSecondary)
-                                .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(chrome.pane(AnteStyle.paneBackground))
-                        }
-                    }
-                    if groups.isEmpty, !board.isLoadingHistory {
-                        Text(board.query.isEmpty ? "No past sessions found" : "No matches")
-                            .font(AnteStyle.uiFont)
-                            .foregroundStyle(AnteStyle.textSecondary)
-                            .padding(24)
-                            .frame(maxWidth: .infinity)
-                    } else if board.query.isEmpty, board.agentFilter == nil, !board.isLoadingHistory {
-                        // The list is everything on disk; say so, and why it stops where it does.
-                        Text("All \(board.history.count) sessions on this Mac. Claude Code deletes transcripts after \(board.claudeRetentionDays) days — change that in Settings › Agents.")
-                            .font(AnteStyle.captionFont)
-                            .foregroundStyle(AnteStyle.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24).padding(.vertical, 16)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .padding(.bottom, 12)
+            if groups.isEmpty, !board.isLoadingHistory {
+                Text(board.query.isEmpty ? "No past sessions found" : "No matches")
+                    .font(AnteStyle.uiFont)
+                    .foregroundStyle(AnteStyle.textSecondary)
+                    .padding(24)
+                    .frame(maxWidth: .infinity)
+            } else if board.query.isEmpty, board.agentFilter == nil, !board.isLoadingHistory {
+                // The list is everything on disk; say so, and why it stops where it does.
+                Text("All \(board.history.count) sessions on this Mac. Claude Code deletes transcripts after \(board.claudeRetentionDays) days — change that in Settings › Agents.")
+                    .font(AnteStyle.captionFont)
+                    .foregroundStyle(AnteStyle.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24).padding(.vertical, 16)
+                    .frame(maxWidth: .infinity)
             }
+        } header: {
+            toolbar
+                .background(chrome.pane(AnteStyle.paneBackground))
+                .overlay(alignment: .bottom) { Divider().overlay(AnteStyle.hairline) }
         }
+    }
+
+    private var toolbar: some View {
+        HStack(spacing: 10) {
+            Text("History")
+                .font(AnteStyle.uiFontSemibold)
+                .foregroundStyle(AnteStyle.textPrimary)
+            if board.isLoadingHistory {
+                ProgressView().controlSize(.small)
+            } else {
+                Text("\(board.filteredHistory.count)")
+                    .font(AnteStyle.captionFont).monospacedDigit()
+                    .foregroundStyle(AnteStyle.textSecondary)
+            }
+            Spacer()
+            Picker("", selection: $board.agentFilter) {
+                Text("All agents").tag(AgentKind?.none)
+                ForEach(board.historyAgents, id: \.self) { agent in
+                    Text(agent.displayName).tag(AgentKind?.some(agent))
+                }
+            }
+            .labelsHidden()
+            .frame(width: 150)
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(AnteStyle.textSecondary)
+                TextField("", text: $board.query, prompt: Text("Search sessions"))
+                    .textFieldStyle(.plain)
+                    .font(AnteStyle.uiFont)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5)
+            .background(AnteStyle.rowHover, in: RoundedRectangle(cornerRadius: AnteStyle.radius, style: .continuous))
+            .frame(width: 240)
+            Button {
+                Task { await board.reloadHistory() }
+            } label: {
+                Image(systemName: "arrow.clockwise").foregroundStyle(AnteStyle.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .help("Rescan")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     private struct Group { let title: String; let rows: [PastSession] }
@@ -159,6 +161,7 @@ private struct HistoryRow: View {
         case .claude: return "sparkles"
         case .codex: return "cpu"
         case .pi: return "function"
+        case .antigravity: return "arrow.up.forward.circle"
         case .shell, .command: return "terminal"
         default: return "wand.and.stars"
         }

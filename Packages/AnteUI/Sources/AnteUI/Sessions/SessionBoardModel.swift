@@ -197,6 +197,7 @@ public final class SessionBoardModel {
         let (loaded, retention, stats): ([PastSession], Int, ActivityStats) = await Task.detached(priority: .userInitiated) {
             let openCode = OpenCodeSessionSource(), pi = PiSessionSource()
             var all = ClaudeSessionSource().scan() + CodexSessionSource().scan() + openCode.scan() + pi.scan()
+                + AntigravitySessionSource().scan()
             all += AnteSessionHistoryStore(paths: paths).all().map(\.asPastSession)
             let retention = ClaudeHookInstaller(eventFile: paths.claudeHookEventFile).retentionDays()
             let stats = ActivityStats.build(events: ClaudeHistorySource().events() + CodexHistorySource().events() + openCode.events() + pi.events())
@@ -207,6 +208,7 @@ public final class SessionBoardModel {
         activity = stats
         isLoadingHistory = false
         refresh()
+        await runtime.accounts.refreshAntigravitySignIn()
     }
 
     public var filteredHistory: [PastSession] {

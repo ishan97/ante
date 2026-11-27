@@ -3,7 +3,7 @@ import Foundation
 
 /// The CLI agents Ante recognises in a pane's foreground, plus the two non-agent states.
 public enum AgentKind: String, Codable, Sendable, CaseIterable {
-    case claude, codex, aider, gemini, goose, amp, opencode, cursor, pi
+    case claude, codex, aider, gemini, goose, amp, opencode, cursor, pi, antigravity
     case shell, command
 
     public var displayName: String {
@@ -17,6 +17,7 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         case .opencode: return "OpenCode"
         case .cursor: return "Cursor Agent"
         case .pi: return "Pi"
+        case .antigravity: return "Antigravity CLI"
         case .shell: return "Shell"
         case .command: return "Command"
         }
@@ -36,6 +37,7 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         .opencode: ["opencode"],
         .cursor: ["cursor-agent"],
         .pi: ["pi"],
+        .antigravity: ["agy"],
     ]
 
     static let shells: Set<String> = ["zsh", "bash", "fish", "sh", "nu", "-zsh", "-bash", "-fish"]
@@ -76,6 +78,7 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         case .codex: return "codex resume \(sessionID)"
         case .opencode: return "opencode --session \(sessionID)"
         case .pi: return "pi --session \(sessionID)"
+        case .antigravity: return "agy --conversation \(sessionID)"
         default: return nil
         }
     }
@@ -88,6 +91,7 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         case .codex: return "codex resume --last"
         case .opencode: return "opencode --continue"
         case .pi: return "pi --continue"
+        case .antigravity: return "agy --continue"
         default: return nil
         }
     }
@@ -102,6 +106,7 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         case .opencode: return "opencode"
         case .pi: return "pi"
         case .gemini: return "gemini"
+        case .antigravity: return "agy"   // `/resume` picks inside it
         default: return nil
         }
     }
@@ -115,6 +120,7 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         case .codex: flags = ["resume"]
         case .opencode: flags = ["--session", "-s"]
         case .pi: flags = ["--session"]
+        case .antigravity: flags = ["--conversation", "--resume", "-r"]
         default: return nil
         }
         for (index, argument) in commandLine.enumerated() {

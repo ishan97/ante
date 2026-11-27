@@ -25,9 +25,14 @@ extension WorkspaceRuntime {
     /// Opens a new session in `project` and starts the agent there as `account` (nil: as the agent
     /// starts by itself, which asks in the terminal when there is a choice).
     public func startAgent(_ agent: AccountAgent, account: AgentAccount?, inNewSessionOf project: ProjectID) {
+        start(command(agent.executable, as: account), inNewSessionOf: project)
+    }
+
+    /// Opens a new session in `project` and runs `command` there once its shell is ready.
+    public func start(_ command: String, inNewSessionOf project: ProjectID) {
         let session = newSession(in: project)
         guard let pane = layout(for: session.id).paneIDs.first else { return }
-        type(command(agent.executable, as: account), intoPaneWhenReady: pane)
+        type(command, intoPaneWhenReady: pane)
         open(session: session.id)
     }
 }

@@ -324,6 +324,7 @@ extension AgentKind {
         case .gemini: rgb = (0.30, 0.55, 0.96)     // blue
         case .opencode: rgb = (0.66, 0.55, 0.98)   // violet
         case .pi: rgb = (0.95, 0.45, 0.71)         // pink
+        case .antigravity: rgb = (0.96, 0.71, 0.26) // amber
         default: rgb = (0.55, 0.58, 0.64)
         }
         return Color(nsColor: NSColor(srgbRed: rgb.0, green: rgb.1, blue: rgb.2, alpha: 1))

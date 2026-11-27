@@ -53,6 +53,15 @@ enum SQLiteReader {
         return query("file:\(encoded)", sql: sql) ?? query("file:\(encoded)?immutable=1", sql: sql) ?? []
     }
 
+    /// The rows as committed, write-ahead log included; nil when that read fails (no fallback to
+    /// `immutable=1`, which would miss what is still in the log). For callers that remember the
+    /// result and must not remember a failed or partial read as the truth.
+    static func committedRows(database: URL, sql: String) -> [[String?]]? {
+        guard FileManager.default.fileExists(atPath: database.path) else { return nil }
+        let encoded = database.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? database.path
+        return query("file:\(encoded)", sql: sql)
+    }
+
     /// Nil when the database cannot be opened, the statement cannot be prepared, or stepping
     /// fails part-way (so the caller's fallback gets a turn instead of a silent partial result).
     private static func query(_ uri: String, sql: String) -> [[String?]]? {

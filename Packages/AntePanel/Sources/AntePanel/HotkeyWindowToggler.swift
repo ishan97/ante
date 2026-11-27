@@ -32,10 +32,13 @@ public final class HotkeyWindowToggler {
     /// The window's everyday Space behaviour, put back when it hides.
     private var restoreBehavior: NSWindow.CollectionBehavior?
     /// The app you came from, so hiding can hand focus back if Ante ended up active meanwhile.
+    /// Kept up to date as other apps become active, not only when the hotkey shows the window:
+    /// a click on Ante's window activates it from whichever app was in front then.
     private var previousApp: NSRunningApplication?
 
-    /// While summoned: on every Space, including over another app's full-screen window, so
-    /// macOS never switches Spaces to show it.
+    /// While summoned: on every Space, so macOS shows it where you are instead of switching to the
+    /// Space it was last on. Another app's full-screen Space is the exception: Ante becomes the
+    /// active app, and macOS leaves a full-screen Space for an app that activates.
     public static let summonedBehavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     /// While summoned: just below the menu bar (menu bar − 2, the level other terminals' hotkey windows use, observed with
     /// CGWindowList), so neither is stuck under the other — whichever hotkey was pressed last is
@@ -46,6 +49,7 @@ public final class HotkeyWindowToggler {
     public private(set) var isSummoned = false
     private var isAnimating = false
     private var resignObserver: NSObjectProtocol?
+    private var activationObserver: NSObjectProtocol?
 
     public init(window: NSWindow? = nil, hideOnFocusLoss: Bool, reveal: Reveal = .slideDown) {
         self.window = window
@@ -55,10 +59,22 @@ public final class HotkeyWindowToggler {
                                                                 object: window, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in self?.windowDidResignKey() }
         }
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
+                                                                               object: nil, queue: .main) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            Task { @MainActor [weak self] in self?.noteActivated(app) }
+        }
+    }
+
+    /// Remembers the last app other than Ante to become active.
+    func noteActivated(_ app: NSRunningApplication?) {
+        guard let app, app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+        previousApp = app
     }
 
     deinit {
         if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
+        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
     }
 
     public func installGlobalShortcut() {

@@ -49,7 +49,8 @@ struct AccountMenuItems: View {
 }
 
 /// The toolbar's "New agent session" menu: one entry per agent, or per account when the agent
-/// has a choice to make (no default set).
+/// has a choice to make (no default set). Antigravity has one Google sign-in and no accounts in
+/// Ante, so it is a single entry.
 struct NewAgentSessionMenu: View {
     @Bindable var runtime: WorkspaceRuntime
 
@@ -68,6 +69,10 @@ struct NewAgentSessionMenu: View {
                     }
                 }
             }
+            Divider()
+            if let command = AgentKind.antigravity.pickerCommand {
+                Button("New \(AgentKind.antigravity.displayName) session") { start(command) }
+            }
         } label: {
             Image(systemName: "sparkles.rectangle.stack")
                 .font(.system(size: 12, weight: .medium))
@@ -77,13 +82,22 @@ struct NewAgentSessionMenu: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("New Claude or Codex session")
+        .help("New Claude, Codex or Antigravity session")
     }
 
     private func start(_ agent: AccountAgent, as account: AgentAccount?) {
-        let project = runtime.store.focusedSession?.projectID ?? runtime.store.state.orderedProjects.first?.id
         guard let project else { return }
         runtime.startAgent(agent, account: account, inNewSessionOf: project)
+    }
+
+    private func start(_ command: String) {
+        guard let project else { return }
+        runtime.start(command, inNewSessionOf: project)
+    }
+
+    /// The focused session's project, else the first one.
+    private var project: ProjectID? {
+        runtime.store.focusedSession?.projectID ?? runtime.store.state.orderedProjects.first?.id
     }
 }
 

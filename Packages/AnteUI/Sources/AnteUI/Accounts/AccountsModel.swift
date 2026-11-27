@@ -32,6 +32,10 @@ public final class AccountsModel {
     /// default logins have the id `default`).
     private var signedIn: [String: Bool] = [:]
 
+    /// The Google account Antigravity CLI last signed in as. Antigravity keeps one sign-in in the
+    /// Keychain, shared with the Antigravity app, so it is shown but never chosen.
+    public private(set) var antigravitySignIn: AntigravitySignIn?
+
     /// Whether the account was signed in when last checked; nil before the first check.
     public func isSignedIn(_ account: AgentAccount) -> Bool? { signedIn[Self.key(account)] }
 
@@ -176,8 +180,16 @@ public final class AccountsModel {
         save()
     }
 
+    /// Re-reads which Google account `agy` last signed in as, from its own log.
+    public func refreshAntigravitySignIn() async {
+        let logs = paths.home.appendingPathComponent(".gemini/antigravity-cli/log")
+        let signIn = await Task.detached(priority: .utility) { AntigravitySignIn.read(logDirectory: logs) }.value
+        if signIn != antigravitySignIn { antigravitySignIn = signIn }
+    }
+
     /// Re-reads each account's sign-in, email and plan.
     public func refreshStatuses() async {
+        await refreshAntigravitySignIn()
         for account in accounts {
             guard let status = await cli.status(account.agent, environment: AccountLaunch.environment(for: account, paths: paths)) else { continue }
             signedIn[Self.key(account)] = status.loggedIn

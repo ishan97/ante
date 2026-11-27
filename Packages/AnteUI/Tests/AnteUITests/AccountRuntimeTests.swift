@@ -253,6 +253,53 @@ final class AccountRuntimeTests: XCTestCase {
         XCTAssertNil(runtime.paneRunning(conversation: "3c2b69dc-0000-0000-0000-000000000000", agent: .claude))
     }
 
+    /// Antigravity has no accounts; the id it was started with still marks the conversation open,
+    /// so a history row focuses that pane instead of starting a second agy on it.
+    func testResumeFocusesAgyPaneStartedWithThatConversation() async throws {
+        let (accounts, _, _) = try twoAccounts()
+        let agy = try ownBinary(named: "agy", from: "/bin/bash")
+        let runtime = makeRuntime(script: "exec '\(agy.path)' -c 'sleep 30; :' --conversation \(conversation)", accounts: accounts)
+        defer { runtime.prepareForQuit() }
+        let session = runtime.store.focusedSession!.id
+        runtime.open(session: session)
+        let pane = runtime.layout(for: session).paneIDs[0]
+        await waitUntil {
+            runtime.controller(for: pane).probeNow()
+            return runtime.controller(for: pane).agent == .antigravity
+        }
+        XCTAssertEqual(runtime.paneRunning(conversation: conversation, agentKind: .antigravity), pane)
+        XCTAssertNil(runtime.paneRunning(conversation: conversation, agentKind: .pi), "another agent's pane is not it")
+        let other = runtime.newSession(in: runtime.store.state.projects[0].id)
+        runtime.open(session: other.id)
+        let before = runtime.store.allVisibleSessions.count
+        let past = PastSession(id: conversation, agent: .antigravity, title: "x", projectPath: root.path, createdAt: Date(),
+                               modifiedAt: Date(), resumeCommand: AgentKind.antigravity.resumeCommand(sessionID: conversation))
+        runtime.resume(past)
+        XCTAssertEqual(runtime.store.allVisibleSessions.count, before, "no second agy on the same conversation")
+        XCTAssertEqual(runtime.focusedPaneID, pane)
+    }
+
+    /// Plain `agy` starts a new conversation: a conversation in its folder created after it
+    /// started is the one it has open; an older one, or one in another folder, is not.
+    func testPlainAgyPaneMatchesOnlyAConversationCreatedSinceItStarted() async throws {
+        let (accounts, _, _) = try twoAccounts()
+        let agy = try ownBinary(named: "agy", from: "/bin/bash")
+        let runtime = makeRuntime(script: "exec '\(agy.path)' -c 'sleep 30; :'", accounts: accounts)
+        defer { runtime.prepareForQuit() }
+        let session = runtime.store.focusedSession!.id
+        runtime.open(session: session)
+        let pane = runtime.layout(for: session).paneIDs[0]
+        await waitUntil {
+            runtime.controller(for: pane).probeNow()
+            return runtime.controller(for: pane).agent == .antigravity
+        }
+        let folder = try XCTUnwrap(runtime.controller(for: pane).currentDirectory?.path)
+        XCTAssertEqual(runtime.paneRunning(conversation: conversation, agentKind: .antigravity, folder: folder, createdAt: Date()), pane)
+        XCTAssertNil(runtime.paneRunning(conversation: conversation, agentKind: .antigravity, folder: folder,
+                                         createdAt: Date().addingTimeInterval(-3600)), "older than the process: another conversation")
+        XCTAssertNil(runtime.paneRunning(conversation: conversation, agentKind: .antigravity, folder: "/Users/t/elsewhere", createdAt: Date()))
+    }
+
     // MARK: - Task 10: switching a live conversation
 
     /// A pane whose stand-in `claude` runs as `account` until Ctrl-C (or forever with

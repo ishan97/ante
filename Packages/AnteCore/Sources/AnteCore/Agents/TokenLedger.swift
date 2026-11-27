@@ -2,7 +2,8 @@
 import Foundation
 
 /// Adds up the tokens every agent on this Mac has used, from the agents' own logs: Claude Code
-/// transcripts, Codex rollouts, OpenCode's database, Pi sessions and Gemini CLI chats. Read only;
+/// transcripts, Codex rollouts, OpenCode's database, Pi sessions, Gemini CLI chats and Antigravity
+/// conversations (`agy` and the Antigravity app). Read only;
 /// nothing leaves the machine.
 ///
 /// Transcripts run to gigabytes, so each file is read once and remembered: an append-only log
@@ -17,14 +18,18 @@ public actor TokenLedger {
         public var geminiTmp: URL
         /// Codex's home (`~/.codex`), for the thread index in its `state_<n>.sqlite`.
         public var codexHome: URL?
+        /// Antigravity's `conversations` folders (CLI, app, IDE): one SQLite file per conversation.
+        public var antigravityConversations: [URL]
 
-        public init(claudeProjects: URL, codexRoots: [URL], openCodeDatabase: URL, piSessions: URL, geminiTmp: URL, codexHome: URL? = nil) {
+        public init(claudeProjects: URL, codexRoots: [URL], openCodeDatabase: URL, piSessions: URL, geminiTmp: URL, codexHome: URL? = nil,
+                    antigravityConversations: [URL] = []) {
             self.claudeProjects = claudeProjects
             self.codexRoots = codexRoots
             self.openCodeDatabase = openCodeDatabase
             self.piSessions = piSessions
             self.geminiTmp = geminiTmp
             self.codexHome = codexHome
+            self.antigravityConversations = antigravityConversations
         }
 
         public static var `default`: Sources {
@@ -34,7 +39,10 @@ public actor TokenLedger {
                            openCodeDatabase: home.appendingPathComponent(".local/share/opencode/opencode.db"),
                            piSessions: home.appendingPathComponent(".pi/agent/sessions"),
                            geminiTmp: home.appendingPathComponent(".gemini/tmp"),
-                           codexHome: home.appendingPathComponent(".codex"))
+                           codexHome: home.appendingPathComponent(".codex"),
+                           antigravityConversations: ["antigravity-cli", "antigravity", "antigravity-ide"].map {
+                               home.appendingPathComponent(".gemini/\($0)/conversations")
+                           })
         }
     }
 
@@ -58,8 +66,20 @@ public actor TokenLedger {
         var model = ""
     }
 
+    /// One Antigravity conversation database as last read: it is read again only when it or its
+    /// write-ahead log changes.
+    struct AntigravityEntry: Sendable {
+        var signature: [Double]
+        var records: [TokenRecord]
+        /// The last generation looked at for model names.
+        var lastGeneration = -1
+    }
+
     private let sources: Sources
     private var files: [String: FileEntry] = [:]
+    private var antigravity: [String: AntigravityEntry] = [:]
+    /// Antigravity model ids → names, shared by every conversation (the ids are global).
+    private var antigravityModels: [Int: String] = [:]
 
     public init(sources: Sources = .default) {
         self.sources = sources
@@ -84,8 +104,16 @@ public actor TokenLedger {
             live.insert(file.path)
             records += read(file, format: .gemini)
         }
+        var liveAntigravity = Set<String>()
+        for folder in sources.antigravityConversations {
+            for database in Self.antigravityDatabases(in: folder, modifiedAfter: horizon) {
+                liveAntigravity.insert(database.url.path)
+                records += readAntigravity(database.url, signature: database.signature)
+            }
+        }
         // Files that were deleted, or aged out of the year, are forgotten.
         files = files.filter { live.contains($0.key) }
+        antigravity = antigravity.filter { liveAntigravity.contains($0.key) }
         records += Self.openCode(database: sources.openCodeDatabase, since: horizon)
         if let codexHome = sources.codexHome {
             records += Self.codexThreads(home: codexHome, since: horizon, skipping: readCodexThreads)
@@ -93,6 +121,43 @@ public actor TokenLedger {
         // No filtered copy: every window starts at or after `horizon`, so older records count
         // nowhere anyway, and a year of records is too many to copy for nothing.
         return TokenUsageReport.build(records: records, now: now, calendar: calendar)
+    }
+
+    // MARK: - Antigravity
+
+    /// The conversation databases in `folder` that changed within the window, each with what
+    /// identifies its current contents: the size and time of the file and of its write-ahead log.
+    private static func antigravityDatabases(in folder: URL, modifiedAfter horizon: Date) -> [(url: URL, signature: [Double])] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        return names.filter { $0.hasSuffix(".db") }.compactMap { name in
+            let url = folder.appendingPathComponent(name)
+            var signature: [Double] = []
+            var newest = Date.distantPast
+            for path in [url.path, url.path + "-wal"] {
+                guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+                      attributes[.type] as? FileAttributeType == .typeRegular else {
+                    if path == url.path { return nil }   // not a plain file: never read
+                    signature += [-1, -1]
+                    continue
+                }
+                let modified = attributes[.modificationDate] as? Date ?? .distantPast
+                newest = max(newest, modified)
+                signature += [(attributes[.size] as? NSNumber)?.doubleValue ?? 0, modified.timeIntervalSince1970]
+            }
+            return newest > horizon ? (url, signature) : nil
+        }
+    }
+
+    private func readAntigravity(_ url: URL, signature: [Double]) -> [TokenRecord] {
+        if let cached = antigravity[url.path], cached.signature == signature { return cached.records }
+        var lastGeneration = antigravity[url.path]?.lastGeneration ?? -1
+        // A read that failed (agy mid-write, say) keeps what was read before and is tried again
+        // next scan: remembering it under this signature would hide the conversation's usage.
+        guard let records = AntigravityUsage.records(database: url, names: &antigravityModels, afterGeneration: &lastGeneration) else {
+            return antigravity[url.path]?.records ?? []
+        }
+        antigravity[url.path] = AntigravityEntry(signature: signature, records: records, lastGeneration: lastGeneration)
+        return records
     }
 
     // MARK: - Files

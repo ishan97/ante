@@ -18,30 +18,38 @@ public struct SessionsView: View {
         let board = runtime.board!
         VStack(spacing: 0) {
             header(board)
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(BoardColumn.allCases, id: \.self) { column in
-                    BoardColumnView(column: column, cards: board.cards(in: column)) { card in
-                        runtime.isSessionsViewerVisible = false
-                        runtime.focusPane(card.id)
+            // One page scrolls: the board, activity and history move together, so the history
+            // gets the whole window instead of what the board leaves below it. History's search
+            // bar pins to the top once the board has scrolled away.
+            ScrollView {
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(BoardColumn.allCases, id: \.self) { column in
+                            BoardColumnView(column: column, cards: board.cards(in: column)) { card in
+                                runtime.isSessionsViewerVisible = false
+                                runtime.focusPane(card.id)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                    .frame(height: 260)
+                    if let activity = board.activity, activity.totalPrompts > 0 {
+                        Divider().overlay(AnteStyle.hairline)
+                        ActivityView(stats: activity)
+                    }
+                    Divider().overlay(AnteStyle.hairline)
+                    HistoryListView(board: board) { past in
+                        // With a real choice and no default, ask which account; otherwise resume as the
+                        // default (or only) account, or as the agent starts by itself.
+                        if let agent = AccountAgent(agentKind: past.agent), runtime.accounts.needsAsking(agent) {
+                            resumeChoice = past
+                        } else {
+                            runtime.resume(past, account: AccountAgent(agentKind: past.agent).flatMap { runtime.accounts.automaticAccount(for: $0) })
+                        }
                     }
                 }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-            .frame(maxHeight: 260)
-            if let activity = board.activity, activity.totalPrompts > 0 {
-                Divider().overlay(AnteStyle.hairline)
-                ActivityView(stats: activity)
-            }
-            Divider().overlay(AnteStyle.hairline)
-            HistoryListView(board: board) { past in
-                // With a real choice and no default, ask which account; otherwise resume as the
-                // default (or only) account, or as the agent starts by itself.
-                if let agent = AccountAgent(agentKind: past.agent), runtime.accounts.needsAsking(agent) {
-                    resumeChoice = past
-                } else {
-                    runtime.resume(past, account: AccountAgent(agentKind: past.agent).flatMap { runtime.accounts.automaticAccount(for: $0) })
-                }
+                .padding(.bottom, 12)
             }
             .confirmationDialog("Resume as which account?", isPresented: Binding(get: { resumeChoice != nil }, set: { if !$0 { resumeChoice = nil } }),
                                 titleVisibility: .visible, presenting: resumeChoice) { past in
@@ -220,6 +228,7 @@ struct SessionCardView: View {
         case .claude: return "sparkles"
         case .codex: return "cpu"
         case .pi: return "function"
+        case .antigravity: return "arrow.up.forward.circle"
         case .shell: return "terminal"
         case .command: return "play.circle"
         default: return "wand.and.stars"

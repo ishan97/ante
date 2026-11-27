@@ -40,7 +40,7 @@ public enum InputEraser {
             return Array(repeating: chunk, count: draftRounds / draftRoundsPerChunk)
         case .shell:
             return [[0x05, 0x15]]
-        case .aider, .gemini, .goose, .amp, .opencode, .cursor, .pi, .command:
+        case .aider, .gemini, .goose, .amp, .opencode, .cursor, .pi, .antigravity, .command:
             return ctrlU
         }
     }

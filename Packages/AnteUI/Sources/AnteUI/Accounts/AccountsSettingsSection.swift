@@ -42,6 +42,21 @@ struct AccountsSettingsSection: View {
                 }
             }
         }
+        Section("\(AgentKind.antigravity.displayName) account") {
+            if let signIn = accounts.antigravitySignIn {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Last seen signed in as \(signIn.email)")
+                    Text("When agy started \(signIn.at.formatted(.relative(presentation: .named)))\(signIn.method == "consumer" ? " · personal Google account" : "")")
+                        .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+                }
+            } else {
+                Text("Not signed in yet. Run agy in a pane and sign in with Google; it shows up here.")
+                    .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+            }
+            Text("Antigravity keeps one Google sign-in, shared with the Antigravity app, so every agy session and resume uses it. To change it, run /logout and then /login inside agy. Ante reads it from agy's log, so a sign-out shows here only once agy runs again.")
+                .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
+        }
+        .task { await accounts.refreshAntigravitySignIn() }
         if let warning = accounts.retentionWarning() {
             Text(warning).font(AnteStyle.captionFont).foregroundStyle(AnteStyle.statusFailed)
         }

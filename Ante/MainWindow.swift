@@ -5,20 +5,20 @@ import AnteCore
 import SwiftUI
 import AnteUI
 
-/// Ante's one workspace window. It is an `NSPanel` with `.nonactivatingPanel` so the hotkey can
-/// drop it over whatever you are doing and let you type, without making Ante the active app —
-/// the app you came from keeps its menu bar and windows exactly as they were, the way a
-/// floating hotkey window should. Launched from the Dock it behaves like any window.
+/// Ante's one workspace window. The hotkey floats it over whatever you are doing and makes Ante
+/// the active app (`HotkeyWindowToggler`); otherwise it is an ordinary window.
+///
+/// It is not a `.nonactivatingPanel`. macOS never activates the app behind such a panel, so
+/// chosen any way but the hotkey (a click, Mission Control) it came forward and then fell back
+/// behind the app that stayed active. What that mode was for, dropping in over another app's
+/// full-screen window, stopped working when the hotkey began activating Ante (c8328b6): macOS
+/// switches Spaces for an app that activates there, whatever the window.
 final class MainPanel: NSPanel {
     /// Set by the controller; lets the header band stop where the toolbar's controls start.
     weak var runtime: WorkspaceRuntime?
     override var canBecomeKey: Bool { true }
-    /// Main only while Ante is the active app: becoming main from an inactive app would activate
-    /// it, which is exactly what the overlay must not do.
-    override var canBecomeMain: Bool { NSApp.isActive }
+    override var canBecomeMain: Bool { true }
 
-    /// While summoned over another app, Ante is not active, so AppKit never offers ⌘-shortcuts to
-    /// its menu bar. Offer them ourselves: ⌘K, ⌘⇧S, ⌘C/⌘V … all keep working in the overlay.
     /// Height of the header band (toolbar and the sidebar strip beside it) that acts as the
     /// title bar. Must match `AnteStyle.toolbarHeight`.
     static let headerHeight: CGFloat = 38
@@ -67,8 +67,7 @@ final class MainPanel: NSPanel {
             setFrame(previous, display: true, animate: animate)
         } else if let screen = screen ?? NSScreen.main {
             expandedRestoreFrame = frame
-            // The menu bar and Dock only auto-hide for the active app; summoned by the hotkey,
-            // Ante is not active, so take activation along with the whole screen.
+            // The menu bar and Dock only auto-hide for the active app: make sure that is Ante.
             NSApp.activate(ignoringOtherApps: true)
             makeKeyAndOrderFront(nil)
             NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
@@ -120,6 +119,8 @@ final class MainPanel: NSPanel {
             return true
         }
         if super.performKeyEquivalent(with: event) { return true }
+        // Should the window have the keyboard while another app is active (a moment around
+        // activation), still offer ⌘-shortcuts to Ante's own menu bar.
         guard !NSApp.isActive, let menu = NSApp.mainMenu else { return false }
         return menu.performKeyEquivalent(with: event)
     }
@@ -131,7 +132,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
 
     init(runtime: AppRuntime) {
         panel = MainPanel(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 760),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView, .nonactivatingPanel],
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         super.init()
         panel.title = "Ante"
