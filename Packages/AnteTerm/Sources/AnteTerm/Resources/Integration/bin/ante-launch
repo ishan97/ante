@@ -1,0 +1,176 @@
+#!/bin/zsh -f
+# Ante's launcher for `claude` and `codex`, installed under both names in a directory Ante's shell
+# integration puts first on PATH. It decides which signed-in account the agent runs as, then
+# exec's the real binary with the same arguments. It never talks to Ante and never waits on it.
+#
+#   Account list  $ANTE_ACCOUNTS_DIR/accounts.tsv   agent  id  folder  name  email  org  plan
+#   Default       $ANTE_ACCOUNTS_DIR/default-<agent>  (an account id; absent = ask)
+#   Shared names  $ANTE_SHARED_<AGENT>               (space-separated; for the link check)
+#
+# An empty folder means the agent's own default folder: the variable is then *unset*, never set.
+setopt extended_glob no_nomatch
+
+agent=${0:t}
+case $agent in
+  claude) var=CLAUDE_CONFIG_DIR; label=Claude; default_home=$HOME/.claude
+          info=(-v --version -h --help auth doctor update upgrade install mcp plugin plugins config setup-token migrate-installer completion)
+          overrides=(ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_PROFILE CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX) ;;
+  codex)  var=CODEX_HOME; label=Codex; default_home=$HOME/.codex
+          info=(-V --version -h --help login logout mcp mcp-server completion help debug features app-server)
+          overrides=(OPENAI_API_KEY) ;;
+  *) print -u2 "ante-launch: unknown agent $agent"; exit 127 ;;
+esac
+
+# The real binary: the first one on PATH that isn't a launcher. Any Ante's launcher directory
+# holds `.ante-launchers`; two of them on PATH (an Ante started from another Ante's pane) would
+# otherwise exec each other forever.
+real=
+for dir in $path; do
+  candidate=$dir/$agent
+  [[ -x $candidate && ! -d $candidate ]] || continue
+  [[ $candidate -ef $0 || -e $dir/.ante-launchers ]] && continue
+  real=$candidate
+  break
+done
+if [[ -z $real ]]; then
+  print -u2 "zsh: command not found: $agent"
+  exit 127
+fi
+
+run() { exec $real "$@" }
+
+# --- Cases where nothing is asked --------------------------------------------------------------
+if [[ $ANTE_ACCOUNT == default ]]; then
+  unset ANTE_ACCOUNT $var
+  run "$@"
+fi
+unset ANTE_ACCOUNT
+[[ -n ${(P)var+set} ]] && run "$@"                 # an account is already chosen
+for name in $overrides; do
+  [[ -n ${(P)name} ]] && run "$@"                  # another login wins anyway
+done
+[[ -t 0 && -t 1 ]] || run "$@"                     # nobody to ask
+(( $# > 0 )) && (( ${info[(Ie)$1]} )) && run "$@"  # --version, auth, mcp, …
+
+file=$ANTE_ACCOUNTS_DIR/accounts.tsv
+[[ -n $ANTE_ACCOUNTS_DIR && -r $file ]] || run "$@"
+ids=() names=() emails=() plans=() folders=()
+while IFS= read -r line || [[ -n $line ]]; do
+  [[ -z $line || $line == \#* ]] && continue
+  fields=("${(@ps:\t:)line}")
+  [[ ${fields[1]} == $agent && ${#fields} -ge 4 ]] || continue
+  # The folder is never taken from the file: it is rebuilt from a plain id (as Ante does), and a
+  # listed account whose folder is gone is skipped. An empty folder column is the default login.
+  if [[ -z ${fields[3]} ]]; then
+    id=default folder=
+  else
+    id=${fields[2]}
+    [[ $id == [a-z0-9]## && ${#id} -le 32 && $id != default ]] || continue
+    folder=$ANTE_ACCOUNTS_DIR/$agent/$id
+    [[ -d $folder && ! -L $folder ]] || continue
+  fi
+  (( ${ids[(Ie)$id]} )) && continue
+  ids+=($id); folders+=("$folder")
+  # Shown on the terminal: control characters (escape sequences) are dropped.
+  names+=("${fields[4]//[[:cntrl:]]/}"); emails+=("${fields[5]//[[:cntrl:]]/}"); plans+=("${fields[7]//[[:cntrl:]]/}")
+done < $file
+(( ${#ids} )) || run "$@"
+
+# --- Starting as an account --------------------------------------------------------------------
+start_as() {
+  local index=$1 folder=${folders[$1]} name link target
+  if [[ -z $folder ]]; then
+    unset $var
+  else
+    export $var=$folder
+    # Shared entries are links back into the default folder. Add a missing one when its target
+    # exists; never touch a real file or folder that sits where a link belongs: just say so.
+    local shared_var=ANTE_SHARED_${(U)agent} entry
+    local -a names_here
+    for entry in ${=${(P)shared_var}}; do
+      # A database glob (`state_*.sqlite`) stands for each match the default folder has now, so a
+      # database the agent created after the account was added is shared too.
+      if [[ $entry == *[*?]* ]]; then names_here=($default_home/${~entry}(N:t)); else names_here=($entry); fi
+      for name in $names_here; do
+        link=$folder/$name target=$default_home/$name
+        if [[ -L $link ]]; then
+          continue
+        elif [[ -e $link ]]; then
+          print -ru2 -- "ante: $name in ${names[$index]} is not shared with your other accounts (see Ante › Settings › Agents)"
+        elif [[ -e $target && -d $folder ]]; then
+          ln -s $target $link 2>/dev/null
+        fi
+      done
+    done
+  fi
+  run "$@[2,-1]"
+}
+
+# Only one account: it is the one, whichever folder it is in.
+(( ${#ids} == 1 )) && start_as 1 "$@"
+
+default_file=$ANTE_ACCOUNTS_DIR/default-$agent
+if [[ -r $default_file ]]; then
+  chosen=$(<$default_file)
+  chosen=${chosen//[[:space:]]/}
+  index=${ids[(Ie)$chosen]}
+  (( index )) && start_as $index "$@"
+fi
+
+# --- The picker --------------------------------------------------------------------------------
+# Drawn on the terminal the agent would use; keys read from stdin with the line discipline in
+# non-canonical mode. Ctrl-C still interrupts (isig stays on).
+widest=0
+for name in $names; do (( ${#name} > widest )) && widest=${#name}; done
+selected=1
+count=${#ids}
+saved=$(stty -g 2>/dev/null)
+restore() { [[ -n $saved ]] && stty $saved 2>/dev/null; print -n '\e[?25h' }
+clear_picker() { print -n "\e[$(( count + 2 ))A\r\e[J" }
+trap 'restore; print; clear_picker; exit 130' INT TERM HUP
+stty -icanon -echo min 1 time 0 2>/dev/null
+
+draw() {
+  local i marker
+  for (( i = 1; i <= count; i++ )); do
+    if (( i == selected )); then marker=$'\e[1m❯ '; else marker='  '; fi
+    print -rn -- $'\r\e[2K  '"${marker}${(r:widest:)names[$i]}   ${emails[$i]}   ${plans[$i]}"$'\e[0m\n'
+  done
+  print -n "\r\e[2K  \e[2m↑↓ choose · ⏎ start · d make default · esc cancel\e[0m"
+}
+
+print -n '\e[?25l'
+print -r -- "  Which $label account?"
+draw
+while true; do
+  key=
+  read -u 0 -k 1 key || { restore; print; exit 130 }
+  case $key in
+    $'\e')
+      next=
+      if read -u 0 -t 0.05 -k 1 next && [[ $next == '[' || $next == O ]]; then
+        read -u 0 -k 1 next
+        case $next in
+          A) (( selected > 1 )) && (( selected-- )) ;;
+          B) (( selected < count )) && (( selected++ )) ;;
+        esac
+      else
+        restore; print; clear_picker; exit 130
+      fi ;;
+    k) (( selected > 1 )) && (( selected-- )) ;;
+    j) (( selected < count )) && (( selected++ )) ;;
+    $'\r'|$'\n') break ;;
+    d|D)
+      tmp=$default_file.$$.tmp
+      print -r -- ${ids[$selected]} > $tmp && mv -f $tmp $default_file
+      break ;;
+    q) restore; print; clear_picker; exit 130 ;;
+  esac
+  print -n "\e[${count}A"
+  draw
+done
+restore
+print
+clear_picker
+trap - INT TERM HUP
+start_as $selected "$@"

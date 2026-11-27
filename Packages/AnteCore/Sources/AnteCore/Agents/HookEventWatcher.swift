@@ -10,14 +10,55 @@ public struct HookEvent: Equatable, Sendable {
     public let event: String
     public let meaning: Meaning
     public let at: Date
+    /// The pane the agent runs in (`ANTE_PANE_ID`), when the hook line carried one.
+    public var paneID: String?
+    /// The agent process the hook ran under (the hook shell's `$PPID`), when the line carried it.
+    /// A `claude -p` started inside a pane inherits the pane's id but not this, so it tells the
+    /// pane's own agent apart from anything that agent runs.
+    public var processID: Int32?
 
-    public init(agent: AgentKind, sessionID: String?, cwd: String?, event: String, meaning: Meaning, at: Date) {
+    public init(agent: AgentKind, sessionID: String?, cwd: String?, event: String, meaning: Meaning, at: Date, paneID: String? = nil,
+                processID: Int32? = nil) {
         self.agent = agent
         self.sessionID = sessionID
         self.cwd = cwd
         self.event = event
         self.meaning = meaning
         self.at = at
+        self.paneID = paneID
+        self.processID = processID
+    }
+
+    /// The hook log's lines: `<pane id>\t<agent pid>\t<json>` (current hook), `<pane id>\t<json>`
+    /// (earlier) or plain `<json>` (oldest). JSON never holds a raw tab, so tabs split the fields
+    /// exactly. A line of any other shape (two writers' bytes interleaved, a stray tab) is dropped
+    /// rather than credited to the wrong pane or process.
+    public static func parse(_ data: Data, at: Date = Date()) -> [HookEvent] {
+        data.split(separator: 0x0A).compactMap { line -> HookEvent? in
+            let fields = line.split(separator: 0x09, omittingEmptySubsequences: false)
+            guard fields.count <= 3, let json = fields.last, json.first == 0x7B else { return nil }
+            var pane: String?
+            var pid: Int32?
+            if fields.count >= 2 {
+                let tag = fields[0]
+                guard tag.count <= 64, tag.allSatisfy(isPaneIDByte) else { return nil }
+                pane = tag.isEmpty ? nil : String(decoding: tag, as: UTF8.self)
+            }
+            if fields.count == 3 {
+                let digits = fields[1]
+                guard digits.count <= 10, digits.allSatisfy({ (0x30...0x39).contains($0) }) else { return nil }
+                pid = digits.isEmpty ? nil : Int32(String(decoding: digits, as: UTF8.self))
+            }
+            guard let obj = (try? JSONSerialization.jsonObject(with: Data(json))) as? [String: Any],
+                  var event = fromClaude(obj, at: at) else { return nil }
+            event.paneID = pane
+            event.processID = pid
+            return event
+        }
+    }
+
+    private static func isPaneIDByte(_ byte: UInt8) -> Bool {
+        (0x30...0x39).contains(byte) || (0x41...0x5A).contains(byte) || (0x61...0x7A).contains(byte) || byte == 0x2D
     }
 
     public static func fromClaude(_ obj: [String: Any], at: Date = Date()) -> HookEvent? {
@@ -107,7 +148,7 @@ public final class HookEventWatcher {
             try? writer.close()
             offset = 0
         }
-        let events = JSONLines.parse(data).compactMap { HookEvent.fromClaude($0) }
+        let events = HookEvent.parse(data)
         if !events.isEmpty { onEvents(events) }
     }
 }

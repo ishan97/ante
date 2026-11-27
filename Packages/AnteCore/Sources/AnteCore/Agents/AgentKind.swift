@@ -64,7 +64,8 @@ public enum AgentKind: String, Codable, Sendable, CaseIterable {
         return .command
     }
 
-    static let idPattern = try! NSRegularExpression(pattern: "^[A-Za-z0-9._-]{8,80}$")
+    /// A plain token that starts with a letter or digit: never an option (`--dangerously-…`).
+    static let idPattern = try! NSRegularExpression(pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{7,79}$")
 
     /// The command typed into a fresh shell to continue a past session. Nil when the agent has no
     /// resume flow or the id is not a safe token.

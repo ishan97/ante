@@ -116,4 +116,18 @@ final class ShellLaunchBuilderTests: XCTestCase {
         XCTAssertEqual(builder.makeLaunch(shellPath: "/bin/zsh", arguments: ["-l", "-c", "tmux new -A"]).arguments, ["-l", "-c", "tmux new -A"])
         XCTAssertEqual(builder.makeLaunch(shellPath: "/bin/zsh", arguments: []).arguments, [], "no login shell if the user says so")
     }
+
+    func testExtraEnvironmentIsPerPaneAndWins() {
+        let builder = ShellLaunchBuilder(baseEnvironment: ["ANTE_PANE_ID": "old", "HOME": "/h"], integration: integration, appVersion: "0.1.0")
+        let launch = builder.makeLaunch(shellPath: "/bin/zsh", extraEnvironment: ["ANTE_PANE_ID": "p1", "ANTE_ACCOUNTS_DIR": "/a"])
+        XCTAssertEqual(env(launch)["ANTE_PANE_ID"], "p1")
+        XCTAssertEqual(env(launch)["ANTE_ACCOUNTS_DIR"], "/a")
+    }
+
+    func testLauncherDirOnlyWithIntegration() {
+        let with = ShellLaunchBuilder(baseEnvironment: [:], integration: integration, appVersion: "0.1.0").makeLaunch(shellPath: "/bin/zsh")
+        XCTAssertEqual(env(with)["ANTE_LAUNCHER_DIR"], integration.binDirectory.path)
+        let without = ShellLaunchBuilder(baseEnvironment: [:], integration: nil, appVersion: "0.1.0").makeLaunch(shellPath: "/bin/zsh")
+        XCTAssertNil(env(without)["ANTE_LAUNCHER_DIR"])
+    }
 }

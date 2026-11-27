@@ -12,7 +12,14 @@ extension WorkspaceRuntime {
 
     /// Opens a session in the past session's project and, once the shell shows its first prompt,
     /// types the agent's resume command. Without a resume command it just reopens the folder.
-    public func resume(_ past: PastSession) {
+    public func resume(_ past: PastSession, account: AgentAccount? = nil) {
+        // A conversation already open in a pane is shown there: a second process would write it too.
+        if let agent = AccountAgent(agentKind: past.agent), let conversation = past.conversationID,
+           let pane = paneRunning(conversation: conversation, agent: agent) {
+            focusPane(pane)
+            isSessionsViewerVisible = false
+            return
+        }
         // Standardize once so the project root and the session cwd agree (`/private/tmp` → `/tmp`).
         let directory = URL(fileURLWithPath: (past.projectPath as NSString).standardizingPath, isDirectory: true)
         let project = store.orderedProjectContaining(directory) ?? store.addProject(rootDirectory: directory)
@@ -20,7 +27,7 @@ extension WorkspaceRuntime {
         let session = store.addSession(in: project.id, name: name, workingDirectory: directory)
         // Listen before the shell spawns: a fast shell prints its prompt within milliseconds.
         if let command = past.resumeCommand {
-            typeAfterFirstPrompt(command, in: session.id)
+            typeAfterFirstPrompt(self.command(command, as: account), in: session.id)
         }
         open(session: session.id)
         isSessionsViewerVisible = false

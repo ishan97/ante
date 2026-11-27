@@ -22,7 +22,21 @@ if status is-interactive; and not set -q ANTE_INTEGRATION_LOADED
         set -e __ante_command_running
     end
 
+    # Ante's claude/codex launchers (which ask for an account) come first on PATH after the
+    # person's config, and are put back at each prompt if something reordered PATH.
+    function __ante_path_first
+        set -q ANTE_LAUNCHER_DIR; or return
+        test "$PATH[1]" = "$ANTE_LAUNCHER_DIR"; and return
+        set -l rest
+        for entry in $PATH
+            test "$entry" = "$ANTE_LAUNCHER_DIR"; or set -a rest $entry
+        end
+        set -gx PATH $ANTE_LAUNCHER_DIR $rest
+    end
+    __ante_path_first
+
     function __ante_prompt --on-event fish_prompt
+        __ante_path_first
         __ante_report_cwd
         printf '\e]133;A\a'
     end

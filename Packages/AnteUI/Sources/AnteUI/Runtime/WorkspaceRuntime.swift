@@ -14,7 +14,8 @@ import AnteTheme
 public final class WorkspaceRuntime {
     private static let logger = Logger(subsystem: "ante.term", category: "runtime")
 
-    public typealias LaunchFactory = @MainActor (URL) -> ShellLaunch
+    /// Builds a pane's shell launch from its folder and its id (exported as `ANTE_PANE_ID`).
+    public typealias LaunchFactory = @MainActor (URL, PaneID) -> ShellLaunch
 
     public let paths: AppPaths
     public let store: WorkspaceStore
@@ -56,6 +57,8 @@ public final class WorkspaceRuntime {
     /// When each pane's foreground process last changed: a hook's session id only counts for
     /// the agent that started after it.
     var foregroundSince: [PaneID: Date] = [:]
+    /// Restored agent panes waiting for the person to pick an account (the restore sheet).
+    public var pendingRestores: [RestoreItem] = []
     /// Set once quit has begun: dying shells must not overwrite the layouts saved for restore.
     var isQuitting = false
 
@@ -66,8 +69,12 @@ public final class WorkspaceRuntime {
     private var paneSessions: [PaneID: SessionID] = [:]
     private var placeholders: [PaneID: TerminalSessionController] = [:]
 
-    public init(paths: AppPaths, config: AnteConfig, launchFactory: @escaping LaunchFactory) {
+    /// The signed-in Claude and Codex accounts.
+    public let accounts: AccountsModel
+
+    public init(paths: AppPaths, config: AnteConfig, accounts: AccountsModel? = nil, launchFactory: @escaping LaunchFactory) {
         self.paths = paths
+        self.accounts = accounts ?? AccountsModel(paths: paths.accountPaths, cli: AgentCLI(home: paths.home))
         self.config = config
         self.launchFactory = launchFactory
         self.store = WorkspaceStore(stateStore: StateStore(paths: paths))
@@ -196,7 +203,7 @@ public final class WorkspaceRuntime {
         if let placeholder = placeholders[pane] { return placeholder }
         placeholders.removeAll()   // one frame's worth is all a placeholder is for
         let placeholder = TerminalSessionController(sessionID: paneSessions[pane] ?? SessionID(),
-                                                    launch: launchFactory(FileManager.default.homeDirectoryForCurrentUser),
+                                                    launch: launchFactory(FileManager.default.homeDirectoryForCurrentUser, pane),
                                                     workingDirectory: FileManager.default.homeDirectoryForCurrentUser, bus: bus)
         placeholders[pane] = placeholder
         return placeholder
@@ -210,7 +217,7 @@ public final class WorkspaceRuntime {
     func makeController(pane: PaneID, session: SessionID, directory: URL?) -> TerminalSessionController {
         let persisted = store.state.sessions.first { $0.id == session }
         let directory = directory ?? persisted?.workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser
-        let launch = launchFactory(directory)
+        let launch = launchFactory(directory, pane)
         let controller = TerminalSessionController(sessionID: session, launch: launch, workingDirectory: directory, bus: bus)
         controller.apply(appearance)
         controller.setBackgroundOpacity(terminalOpacity)
@@ -294,7 +301,8 @@ public final class WorkspaceRuntime {
                              projectPath: project?.rootDirectory.path ?? cwd.path,
                              lastCommand: controller?.foregroundCommand.map(Self.programName) ?? session.lastCommand,
                              agent: controller?.agent ?? savedAgentPane?.agent ?? .shell,
-                             agentSessionID: liveAgentPane?.agentSessionID ?? savedAgentPane?.agentSessionID)
+                             agentSessionID: liveAgentPane?.agentSessionID ?? savedAgentPane?.agentSessionID,
+                             accountID: liveAgentPane?.accountID ?? savedAgentPane?.accountID)
     }
 
     /// Only sessions with an agent in the foreground go to History: an agent session can be

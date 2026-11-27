@@ -16,7 +16,9 @@ struct SplitContainerView: View {
                 showSearch: runtime.isSearchVisible && runtime.focusedPaneID == pane,
                 onCloseSearch: { runtime.isSearchVisible = false },
                 showClose: runtime.session(for: pane).map { runtime.paneCount(for: $0) > 1 } ?? false,
-                onClose: { runtime.closePane(pane) }
+                onClose: { runtime.closePane(pane) },
+                runtime: runtime,
+                pane: pane
             )
             // Keyed by pane: an NSViewRepresentable cannot swap its hosted NSView in
             // updateNSView, so switching sessions must create a fresh host per pane.

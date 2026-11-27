@@ -53,8 +53,8 @@ targets:
       properties:
         CFBundleName: Ante
         CFBundleDisplayName: Ante
-        CFBundleShortVersionString: "1.7.0"
-        CFBundleVersion: "167"
+        CFBundleShortVersionString: "1.8.0"
+        CFBundleVersion: "182"
         LSMinimumSystemVersion: "14.0"
         NSHighResolutionCapable: true
         NSHumanReadableCopyright: "Copyright © 2026 Ishan Gupta. MIT License."

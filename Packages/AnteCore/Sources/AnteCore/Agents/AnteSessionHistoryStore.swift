@@ -13,9 +13,12 @@ public struct ClosedSession: Codable, Hashable, Sendable, Identifiable {
     /// The agent's own id for the conversation, when Ante knew it. Absent in entries filed
     /// before 1.6.
     public var agentSessionID: String?
+    /// The account the agent last ran as (`AgentAccount.id`), when known. Absent before accounts.
+    public var accountID: String?
 
     public init(id: String = UUID().uuidString, name: String, workingDirectory: String, projectPath: String,
-                lastCommand: String?, agent: AgentKind, closedAt: Date = Date(), agentSessionID: String? = nil) {
+                lastCommand: String?, agent: AgentKind, closedAt: Date = Date(), agentSessionID: String? = nil,
+                accountID: String? = nil) {
         self.id = id
         self.name = name
         self.workingDirectory = workingDirectory
@@ -24,6 +27,7 @@ public struct ClosedSession: Codable, Hashable, Sendable, Identifiable {
         self.agent = agent
         self.closedAt = closedAt
         self.agentSessionID = agentSessionID
+        self.accountID = accountID
     }
 
     /// Picking it up again resumes the exact conversation when its id is known, else opens the
@@ -35,7 +39,8 @@ public struct ClosedSession: Codable, Hashable, Sendable, Identifiable {
 
     public var asPastSession: PastSession {
         PastSession(id: "ante-\(id)", agent: agent, title: name, projectPath: workingDirectory,
-                    createdAt: closedAt, modifiedAt: closedAt, detail: lastCommand, resumeCommand: resumeCommand)
+                    createdAt: closedAt, modifiedAt: closedAt, detail: lastCommand, resumeCommand: resumeCommand,
+                    accountID: accountID, agentSessionID: agentSessionID)
     }
 }
 

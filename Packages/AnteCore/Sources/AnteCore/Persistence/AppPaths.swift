@@ -8,10 +8,21 @@ public struct AppPaths: Sendable, Equatable {
     /// `~/.config/ante` in production.
     public let configRoot: URL
 
-    public init(root: URL, configRoot: URL) {
+    /// `~/.ante/accounts` in production: the account folders and their list.
+    public let accountsRoot: URL
+    /// The home whose `.claude` / `.codex` are the agents' default folders.
+    public let home: URL
+
+    /// Without explicit account roots everything stays under `root`, so a test that builds
+    /// paths from a scratch directory can never reach the real home's agent folders.
+    public init(root: URL, configRoot: URL, accountsRoot: URL? = nil, home: URL? = nil) {
         self.root = root
         self.configRoot = configRoot
+        self.accountsRoot = accountsRoot ?? root.appendingPathComponent("accounts", isDirectory: true)
+        self.home = home ?? root.appendingPathComponent("home", isDirectory: true)
     }
+
+    public var accountPaths: AccountPaths { AccountPaths(root: accountsRoot, home: home) }
 
     public static var `default`: AppPaths {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -19,7 +30,9 @@ public struct AppPaths: Sendable, Equatable {
             ?? home.appendingPathComponent("Library/Application Support")
         return AppPaths(
             root: appSupport.appendingPathComponent("Ante", isDirectory: true),
-            configRoot: home.appendingPathComponent(".config/ante", isDirectory: true)
+            configRoot: home.appendingPathComponent(".config/ante", isDirectory: true),
+            accountsRoot: home.appendingPathComponent(".ante/accounts", isDirectory: true),
+            home: home
         )
     }
 

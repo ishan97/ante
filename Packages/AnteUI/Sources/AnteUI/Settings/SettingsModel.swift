@@ -24,6 +24,9 @@ public final class SettingsModel {
 
     // MARK: - Updates
 
+    /// The workspace, for the Accounts section (its model, and signing in in a pane).
+    public var workspace: WorkspaceRuntime { runtime }
+
     /// The app's updater, if the app installed one (nil in tests and unsigned builds).
     public var updater: (any UpdateChecking)? { runtime.updater }
 

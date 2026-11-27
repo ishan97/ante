@@ -36,6 +36,7 @@ struct WorkspaceToolbar: View {
             }
             Spacer()
             HStack(spacing: 4) {
+                NewAgentSessionMenu(runtime: runtime)
                 tokensButton
                 pomodoroButton
                 scratchpadButton

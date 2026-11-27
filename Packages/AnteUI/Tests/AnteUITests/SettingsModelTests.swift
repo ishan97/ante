@@ -10,7 +10,7 @@ final class SettingsModelTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ante-set-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = AppPaths(root: root, configRoot: root.appendingPathComponent("config"))
-        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: [], kind: .other)
         })
         let model = SettingsModel(runtime: runtime)
@@ -55,7 +55,7 @@ extension SettingsModelTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ante-set-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = AppPaths(root: root, configRoot: root.appendingPathComponent("config"))
-        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: [], kind: .other)
         })
         let model = SettingsModel(runtime: runtime)
@@ -83,7 +83,7 @@ extension SettingsModelTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ante-set-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = AppPaths(root: root, configRoot: root.appendingPathComponent("config"))
-        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: [], kind: .other)
         })
         let model = SettingsModel(runtime: runtime)

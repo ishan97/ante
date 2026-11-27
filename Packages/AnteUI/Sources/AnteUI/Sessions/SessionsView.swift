@@ -7,6 +7,8 @@ public struct SessionsView: View {
     @Environment(\.anteChrome) private var chrome
     @Environment(\.anteAccent) private var accent
     @Bindable var runtime: WorkspaceRuntime
+    /// A past session waiting for the person to pick which account it resumes on.
+    @State private var resumeChoice: PastSession?
 
     public init(runtime: WorkspaceRuntime) {
         self.runtime = runtime
@@ -33,7 +35,23 @@ public struct SessionsView: View {
             }
             Divider().overlay(AnteStyle.hairline)
             HistoryListView(board: board) { past in
-                runtime.resume(past)
+                // With a real choice and no default, ask which account; otherwise resume as the
+                // default (or only) account, or as the agent starts by itself.
+                if let agent = AccountAgent(agentKind: past.agent), runtime.accounts.needsAsking(agent) {
+                    resumeChoice = past
+                } else {
+                    runtime.resume(past, account: AccountAgent(agentKind: past.agent).flatMap { runtime.accounts.automaticAccount(for: $0) })
+                }
+            }
+            .confirmationDialog("Resume as which account?", isPresented: Binding(get: { resumeChoice != nil }, set: { if !$0 { resumeChoice = nil } }),
+                                titleVisibility: .visible, presenting: resumeChoice) { past in
+                if let agent = AccountAgent(agentKind: past.agent) {
+                    AccountMenuItems(accounts: runtime.accounts.accounts(for: agent), lastUsedID: past.accountID) { account in
+                        runtime.resume(past, account: account)
+                    }
+                }
+            } message: { past in
+                Text("\(past.title) continues on the account you pick.")
             }
         }
         .background(chrome.pane(AnteStyle.paneBackground))

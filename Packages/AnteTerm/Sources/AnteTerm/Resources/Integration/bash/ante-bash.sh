@@ -32,6 +32,19 @@ __ante_urlencode() {
   printf '%s' "$out"
 }
 
+# Ante's `claude`/`codex` launchers (which ask for an account) come first on PATH once the
+# person's startup files have run, and are put back at each prompt if something reordered PATH.
+__ante_path_first() {
+  [[ -n "$ANTE_LAUNCHER_DIR" ]] || return 0
+  case ":$PATH:" in ":$ANTE_LAUNCHER_DIR:"*) return 0 ;; esac
+  local rest=":$PATH:"
+  rest="${rest//:$ANTE_LAUNCHER_DIR:/:}"
+  rest="${rest#:}"
+  rest="${rest%:}"
+  PATH="$ANTE_LAUNCHER_DIR${rest:+:$rest}"
+}
+__ante_path_first
+
 # Runs first in PROMPT_COMMAND so $? is still the user's command status.
 __ante_capture_status() {
   __ante_last_status=$?
@@ -39,6 +52,7 @@ __ante_capture_status() {
 
 # Runs last in PROMPT_COMMAND: reports the finished command, cwd, and the new prompt.
 __ante_precmd() {
+  __ante_path_first
   if [[ -n "$__ante_command_running" ]]; then
     printf '\033]133;D;%d\007' "$__ante_last_status"
     unset __ante_command_running

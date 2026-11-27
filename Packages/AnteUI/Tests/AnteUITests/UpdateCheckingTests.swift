@@ -26,7 +26,7 @@ final class UpdateCheckingTests: XCTestCase {
 
     private func makeRuntime() -> WorkspaceRuntime {
         let paths = AppPaths(root: root.appendingPathComponent("state"), configRoot: root.appendingPathComponent("config"))
-        return WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+        return WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: ["PATH=/usr/bin:/bin"], kind: .other)
         })
     }

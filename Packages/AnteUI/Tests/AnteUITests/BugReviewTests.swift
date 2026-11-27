@@ -9,7 +9,7 @@ final class BugReviewTests: XCTestCase {
     private func makeRuntime() -> (WorkspaceRuntime, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ante-bug-\(UUID().uuidString)")
         let paths = AppPaths(root: root.appendingPathComponent("state"), configRoot: root.appendingPathComponent("config"))
-        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: ["PATH=/usr/bin:/bin"], kind: .other)
         })
         return (runtime, root)

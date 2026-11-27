@@ -11,6 +11,48 @@ final class ForegroundProbeTests: XCTestCase {
         XCTAssertTrue(argv[0].lowercased().contains("xctest") || argv[0].lowercased().contains("swift"), "\(argv)")
     }
 
+    /// macOS hides the environment of Apple's own binaries; agents are never those, so the tests
+    /// use an ad-hoc-signed copy of `sleep`, named `sleep`.
+    private func ownSleep() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("probe-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let copy = dir.appendingPathComponent("sleep")
+        try FileManager.default.copyItem(at: URL(fileURLWithPath: "/bin/sleep"), to: copy)
+        let sign = Process()
+        sign.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+        sign.arguments = ["-f", "-s", "-", copy.path]
+        sign.standardError = FileHandle.nullDevice
+        try sign.run()
+        sign.waitUntilExit()
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        return copy
+    }
+
+    func testProbeReadsEnvironment() throws {
+        let sleep = try ownSleep()
+        let process = Process()
+        process.executableURL = sleep
+        process.arguments = ["5"]
+        process.environment = ["CLAUDE_CONFIG_DIR": "/tmp/x y", "OTHER": "1", "PATH": "/usr/bin:/bin"]
+        try process.run()
+        defer { process.terminate() }
+        let env = ForegroundProbe.environment(pid: process.processIdentifier, keys: ["CLAUDE_CONFIG_DIR", "CODEX_HOME"])
+        XCTAssertEqual(env, ["CLAUDE_CONFIG_DIR": "/tmp/x y"])
+        XCTAssertEqual(ForegroundProbe.commandLine(pid: process.processIdentifier), [sleep.path, "5"], "argv is unchanged")
+    }
+
+    func testForegroundInfoCarriesAccountKeys() async throws {
+        let sleep = try ownSleep()
+        let c = TerminalSessionController(sessionID: SessionID(),
+                                          launch: ShellLaunch(executable: "/bin/sh", arguments: ["-c", "CODEX_HOME=/tmp/h ANTE_PANE_ID=p1 OTHER=1 exec '\(sleep.path)' 4"],
+                                                              environment: ["PATH=/usr/bin:/bin", "HOME=/tmp"], kind: .other),
+                                          workingDirectory: URL(fileURLWithPath: "/tmp"), bus: RunEventBus())
+        c.start()
+        await wait(until: c.foreground?.executableName == "sleep", seconds: 3.5)
+        XCTAssertEqual(c.foreground?.environment, ["CODEX_HOME": "/tmp/h", "ANTE_PANE_ID": "p1"])
+        c.terminate()
+    }
+
     private func controller(_ exe: String, _ args: [String]) -> TerminalSessionController {
         TerminalSessionController(sessionID: SessionID(),
                                   launch: ShellLaunch(executable: exe, arguments: args, environment: ["PATH=/usr/bin:/bin", "HOME=/tmp"], kind: .other),

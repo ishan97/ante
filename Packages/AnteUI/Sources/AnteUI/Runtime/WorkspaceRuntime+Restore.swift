@@ -42,9 +42,13 @@ extension WorkspaceRuntime {
             other.key != pane && other.value.state == .running && other.value.agent == agent
                 && other.value.currentDirectory.map { SessionBoardModel.normalize($0.path) } == folder
         }
-        let hookID = foregroundSince[pane].flatMap { board?.hookSessionID(agent: agent, directory: directory, since: $0) }
-        return Self.savedAgentPane(agent: agent, directory: directory, commandLine: controller.foreground?.commandLine ?? [],
-                                   hookSessionID: hookID, sharesFolder: sharesFolder)
+        let hookID = foregroundSince[pane].flatMap {
+            board?.hookSessionID(agent: agent, directory: directory, since: $0, process: controller.foreground?.pid)
+        }
+        var saved = Self.savedAgentPane(agent: agent, directory: directory, commandLine: controller.foreground?.commandLine ?? [],
+                                        liveSessionID: liveConversation(in: pane).id, hookSessionID: hookID, sharesFolder: sharesFolder)
+        saved.accountID = account(in: pane)?.id
+        return saved
     }
 
     /// Which conversation an agent pane comes back to. The id it was started with comes first (it
@@ -53,9 +57,11 @@ extension WorkspaceRuntime {
     /// agent there. Without an id the pane continues the agent's latest conversation in the
     /// folder, unless another pane shares it: then the agent's picker opens, so two panes never
     /// end up in one conversation.
-    static func savedAgentPane(agent: AgentKind, directory: URL, commandLine: [String],
+    /// `liveSessionID` (the agent's own record of its open conversation, or this pane's hook) is
+    /// exact and follows `/clear` and `/resume`, so it comes before the command line.
+    static func savedAgentPane(agent: AgentKind, directory: URL, commandLine: [String], liveSessionID: String? = nil,
                                hookSessionID: String?, sharesFolder: Bool) -> SavedPane {
-        let id = agent.sessionID(fromCommandLine: commandLine) ?? (sharesFolder ? nil : hookSessionID)
+        let id = liveSessionID ?? agent.sessionID(fromCommandLine: commandLine) ?? (sharesFolder ? nil : hookSessionID)
         return SavedPane(workingDirectory: directory, agent: agent, agentSessionID: id, mayContinueLatest: !sharesFolder)
     }
 
@@ -85,7 +91,7 @@ extension WorkspaceRuntime {
             // An agent resumes only in its own folder: "continue the latest" elsewhere would open
             // some other conversation.
             if directory == wanted, let command = savedPane.resumeCommand {
-                type(command, intoPaneWhenReady: pane)
+                restoreAgent(command, savedPane: savedPane, session: session, pane: pane, folder: directory)
             }
             return .leaf(pane)
         case let .split(axis, ratio, first, second):
@@ -100,6 +106,39 @@ extension WorkspaceRuntime {
         return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 
+    // MARK: - Asking which account restored agents run as
+
+    /// An account-aware agent comes back as the default or only account; with a real choice and
+    /// no default, its pane waits in `pendingRestores` for the restore sheet.
+    private func restoreAgent(_ command: String, savedPane: SavedPane, session: SessionID, pane: PaneID, folder: URL) {
+        guard let agent = savedPane.agent.flatMap(AccountAgent.init(agentKind:)) else {
+            type(command, intoPaneWhenReady: pane)
+            return
+        }
+        guard accounts.needsAsking(agent) else {
+            type(self.command(command, as: accounts.automaticAccount(for: agent)), intoPaneWhenReady: pane)
+            return
+        }
+        let name = store.state.sessions.first { $0.id == session }?.name ?? agent.displayName
+        pendingRestores.append(RestoreItem(pane: pane, agent: agent, title: name, folder: folder.lastPathComponent, base: command,
+                                           preselected: accounts.account(id: savedPane.accountID, agent: agent)))
+    }
+
+    /// Starts each waiting agent as the chosen account (nil: as the agent starts by itself).
+    public func confirmRestore(_ choices: [PaneID: AgentAccount?]) {
+        let items = pendingRestores
+        pendingRestores = []
+        for item in items {
+            let account = choices[item.pane] ?? item.preselected
+            type(command(item.base, as: account), intoPaneWhenReady: item.pane)
+        }
+    }
+
+    /// Leaves the waiting panes as plain shells.
+    public func skipRestoreAgents() {
+        pendingRestores = []
+    }
+
     // MARK: - Typing the resume command
 
     /// Types `command` into the pane at its shell's first prompt, or after 10 s for a shell
@@ -107,6 +146,11 @@ extension WorkspaceRuntime {
     /// on the pane's own controller.
     func type(_ command: String, intoPaneWhenReady pane: PaneID) {
         guard let controller = controllers[pane] else { return }
+        // A shell already at its prompt (the person took a while to choose) gets it now.
+        if controller.hasShownPrompt, controller.activity == .idle {
+            if controller.lastTypedAt == nil { controller.view.send(txt: command + "\n") }
+            return
+        }
         let fallback = Task { [weak self] in
             try? await Task.sleep(for: .seconds(10))
             guard !Task.isCancelled else { return }

@@ -40,6 +40,8 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
     public private(set) var activity: SessionActivity = .idle
     /// Exit code of the most recent finished command, from OSC 133;D.
     public private(set) var lastExitCode: Int?
+    /// Whether the shell has drawn a prompt (OSC 133;A) at least once: it is ready for typing.
+    public private(set) var hasShownPrompt = false
     /// Commands the user has started in this pane (OSC 133;C). Zero means an untouched shell.
     public private(set) var commandsRun = 0
     /// When the terminal last received output. Feeds the "waiting for you" heuristic.
@@ -154,6 +156,7 @@ public final class TerminalSessionController: NSObject, @preconcurrency LocalPro
                 onDirectoryChanged?(url)
             case .promptStarted:
                 activity = .idle
+                hasShownPrompt = true
                 onPromptStarted?()
             case let .notification(message):
                 lastNotification = (message, Date())

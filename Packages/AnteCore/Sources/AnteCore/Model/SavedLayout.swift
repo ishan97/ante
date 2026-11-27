@@ -34,15 +34,20 @@ public struct SavedPane: Hashable, Codable, Sendable {
     /// False when another pane ran the same agent in the same folder: "continue the latest here"
     /// would give both panes one conversation, so without an id the agent's picker opens instead.
     public var mayContinueLatest: Bool
+    /// The account the agent ran as (`AgentAccount.id`), when Ante could tell. Preselects the
+    /// account when the pane is restored. Absent in panes saved before accounts existed.
+    public var accountID: String?
 
-    public init(workingDirectory: URL, agent: AgentKind? = nil, agentSessionID: String? = nil, mayContinueLatest: Bool = true) {
+    public init(workingDirectory: URL, agent: AgentKind? = nil, agentSessionID: String? = nil, mayContinueLatest: Bool = true,
+                accountID: String? = nil) {
         self.workingDirectory = workingDirectory
         self.agent = agent
         self.agentSessionID = agentSessionID
         self.mayContinueLatest = mayContinueLatest
+        self.accountID = accountID
     }
 
-    private enum CodingKeys: String, CodingKey { case workingDirectory, agent, agentSessionID, mayContinueLatest }
+    private enum CodingKeys: String, CodingKey { case workingDirectory, agent, agentSessionID, mayContinueLatest, accountID }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -50,6 +55,7 @@ public struct SavedPane: Hashable, Codable, Sendable {
         agent = try c.decodeIfPresent(AgentKind.self, forKey: .agent)
         agentSessionID = try c.decodeIfPresent(String.self, forKey: .agentSessionID)
         mayContinueLatest = try c.decodeIfPresent(Bool.self, forKey: .mayContinueLatest) ?? true
+        accountID = try c.decodeIfPresent(String.self, forKey: .accountID)
     }
 
     /// What to type into the pane's fresh shell to bring its agent back, if anything.

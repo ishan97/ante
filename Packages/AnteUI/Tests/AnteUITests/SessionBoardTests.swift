@@ -57,7 +57,7 @@ final class SessionBoardTests: XCTestCase {
     private func makeRuntime(script: String) -> (WorkspaceRuntime, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ante-board-\(UUID().uuidString)")
         let paths = AppPaths(root: root.appendingPathComponent("state"), configRoot: root.appendingPathComponent("config"))
-        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", script], environment: ["PATH=/usr/bin:/bin"], kind: .other)
         })
         return (runtime, root)
@@ -144,5 +144,38 @@ final class SessionBoardTests: XCTestCase {
         XCTAssertEqual(runtime.board.cards.first?.sessionName, "Terminal")
         runtime.board.ingest([HookEvent(agent: .claude, sessionID: nil, cwd: "/tmp", event: "Notification", meaning: .waiting("needs you"), at: Date())])
         XCTAssertEqual(runtime.board.waitingCount, 0, "hook for a cwd no live pane is in changes nothing")
+    }
+
+    func testHookSessionIDByPaneIsExactAndFollowsSessionStart() {
+        let (runtime, root) = makeRuntime(script: "sleep 30")
+        defer { runtime.prepareForQuit(); try? FileManager.default.removeItem(at: root) }
+        let pane = PaneID()
+        let other = PaneID()
+        let start = Date()
+        runtime.board.ingest([HookEvent(agent: .claude, sessionID: "old-session", cwd: "/p", event: "UserPromptSubmit", meaning: .working,
+                                        at: start, paneID: pane.rawValue.uuidString),
+                              HookEvent(agent: .claude, sessionID: "other-pane", cwd: "/p", event: "Stop", meaning: .waiting("x"),
+                                        at: start, paneID: other.rawValue.uuidString),
+                              HookEvent(agent: .claude, sessionID: "after-clear", cwd: "/p", event: "SessionStart", meaning: .other,
+                                        at: start.addingTimeInterval(1), paneID: pane.rawValue.uuidString)])
+        XCTAssertEqual(runtime.board.hookSessionID(pane: pane, agent: .claude, since: start, process: 100), "after-clear")
+        XCTAssertEqual(runtime.board.hookSessionID(pane: other, agent: .claude, since: start, process: 100), "other-pane")
+        XCTAssertNil(runtime.board.hookSessionID(pane: pane, agent: .codex, since: start, process: 100))
+        XCTAssertNil(runtime.board.hookSessionID(pane: pane, agent: .claude, since: start.addingTimeInterval(5), process: 100))
+    }
+
+    /// A `claude -p` the pane's agent runs inherits the pane id; its hooks name its own process.
+    func testHookFromANestedAgentDoesNotReplaceThePanesConversation() {
+        let (runtime, root) = makeRuntime(script: "sleep 30")
+        defer { runtime.prepareForQuit(); try? FileManager.default.removeItem(at: root) }
+        let id = PaneID()
+        let pane = id.rawValue.uuidString
+        let start = Date()
+        runtime.board.ingest([HookEvent(agent: .claude, sessionID: "main", cwd: "/p", event: "SessionStart", meaning: .other,
+                                        at: start, paneID: pane, processID: 100),
+                              HookEvent(agent: .claude, sessionID: "nested", cwd: "/p", event: "SessionStart", meaning: .other,
+                                        at: start.addingTimeInterval(1), paneID: pane, processID: 200)])
+        XCTAssertEqual(runtime.board.hookSessionID(pane: id, agent: .claude, since: start, process: 100), "main")
+        XCTAssertEqual(runtime.board.hookSessionID(agent: .claude, directory: URL(fileURLWithPath: "/p"), since: start, process: 100), "main")
     }
 }

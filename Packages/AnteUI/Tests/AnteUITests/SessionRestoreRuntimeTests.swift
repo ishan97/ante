@@ -25,7 +25,7 @@ final class SessionRestoreRuntimeTests: XCTestCase {
     }
 
     private func makeRuntime(restore: Bool, script: String = "sleep 30") -> WorkspaceRuntime {
-        WorkspaceRuntime(paths: paths, config: config(restore: restore), launchFactory: { _ in
+        WorkspaceRuntime(paths: paths, config: config(restore: restore), launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", script], environment: ["PATH=/usr/bin:/bin"], kind: .other)
         })
     }

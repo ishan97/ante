@@ -34,8 +34,12 @@ public final class SessionBoardModel {
 
     private unowned let runtime: WorkspaceRuntime
     private var hookSignals: [String: (meaning: HookEvent.Meaning, at: Date)] = [:]
-    /// The agent session a hook last reported in each folder, for `[sessions] restore`.
+    /// The agent session a hook last reported in each folder, for `[sessions] restore`. Keyed by
+    /// folder and the agent process that ran the hook (`Self.key`), so a `claude -p` that a pane's
+    /// agent starts in the same folder never stands in for that agent's own conversation.
     private var hookSessions: [String: (agent: AgentKind, id: String, at: Date)] = [:]
+    /// The same, keyed by the pane the hook ran in (`ANTE_PANE_ID`) and the process.
+    private var hookSessionsByPane: [String: (agent: AgentKind, id: String, at: Date)] = [:]
     private var columnSince: [PaneID: (column: BoardColumn, at: Date)] = [:]
     private var timer: Timer?
     /// Delivers a "waiting for you" notification (macOS notification + the configured sound);
@@ -74,7 +78,10 @@ public final class SessionBoardModel {
     public func ingest(_ events: [HookEvent]) {
         for event in events {
             guard let cwd = event.cwd else { continue }
-            if let id = event.sessionID { hookSessions[Self.normalize(cwd)] = (event.agent, id, event.at) }
+            if let id = event.sessionID {
+                hookSessions[Self.key(Self.normalize(cwd), event.processID)] = (event.agent, id, event.at)
+                if let pane = event.paneID { hookSessionsByPane[Self.key(pane, event.processID)] = (event.agent, id, event.at) }
+            }
             guard event.meaning != .other else { continue }
             hookSignals[Self.normalize(cwd)] = (event.meaning, event.at)
         }
@@ -82,9 +89,25 @@ public final class SessionBoardModel {
         runtime.recordAllLayouts()
     }
 
+    /// The session id a hook reported from one pane (by its `ANTE_PANE_ID`) at or after `since`.
+    /// Unlike the folder lookup this is exact, and follows `/clear` and `/resume` (SessionStart).
+    /// `process` is the pane's agent: only hooks that agent ran count, or (from a hook too old to
+    /// say) hooks that named no process.
+    func hookSessionID(pane: PaneID, agent: AgentKind, since: Date, process: Int32?) -> String? {
+        Self.lookup(hookSessionsByPane, pane.rawValue.uuidString, process: process, agent: agent, since: since)
+    }
+
     /// The session id a hook reported for `agent` in `directory` at or after `since`.
-    func hookSessionID(agent: AgentKind, directory: URL, since: Date) -> String? {
-        guard let entry = hookSessions[Self.normalize(directory.path)], entry.agent == agent, entry.at >= since else { return nil }
+    func hookSessionID(agent: AgentKind, directory: URL, since: Date, process: Int32?) -> String? {
+        Self.lookup(hookSessions, Self.normalize(directory.path), process: process, agent: agent, since: since)
+    }
+
+    private static func key(_ base: String, _ process: Int32?) -> String { "\(base)#\(process.map(String.init) ?? "")" }
+
+    private static func lookup(_ table: [String: (agent: AgentKind, id: String, at: Date)], _ base: String, process: Int32?,
+                               agent: AgentKind, since: Date) -> String? {
+        let entry = process.flatMap { table[key(base, $0)] } ?? table[key(base, nil)]
+        guard let entry, entry.agent == agent, entry.at >= since else { return nil }
         return entry.id
     }
 

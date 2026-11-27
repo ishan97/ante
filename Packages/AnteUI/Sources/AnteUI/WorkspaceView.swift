@@ -61,6 +61,9 @@ public struct WorkspaceView: View {
             }
         }
         .ignoresSafeArea(.container, edges: .top)
+        .sheet(isPresented: Binding(get: { !runtime.pendingRestores.isEmpty }, set: { if !$0 { runtime.skipRestoreAgents() } })) {
+            RestoreAccountsSheet(runtime: runtime)
+        }
         .background(chrome.pane(AnteStyle.paneBackground))
         .background(WindowTranslucency(chrome: chrome))
         .preferredColorScheme(preferredScheme)

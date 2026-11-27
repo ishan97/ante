@@ -30,8 +30,17 @@ _ante_report_cwd() {
   printf '\e]7;file://localhost%s\a' "$(_ante_urlencode "$PWD")"
 }
 
+# Ante's `claude`/`codex` launchers (which ask for an account) come first on PATH once the
+# person's rc files have run, and are put back at each prompt if something reordered PATH.
+_ante_path_first() {
+  [[ -n "$ANTE_LAUNCHER_DIR" && "${path[1]}" != "$ANTE_LAUNCHER_DIR" ]] || return 0
+  path=("$ANTE_LAUNCHER_DIR" "${(@)path:#$ANTE_LAUNCHER_DIR}")
+}
+_ante_path_first
+
 _ante_precmd() {
   local status_code=$?
+  _ante_path_first
   if (( ${+_ante_command_running} )); then
     printf '\e]133;D;%d\a' "$status_code"
     unset _ante_command_running

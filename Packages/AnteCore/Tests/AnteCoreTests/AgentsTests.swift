@@ -20,6 +20,9 @@ final class AgentsTests: XCTestCase {
     func testResumeCommandsAreTemplatedAndValidated() {
         XCTAssertEqual(AgentKind.claude.resumeCommand(sessionID: "3c2b69dc-f7ea-490e-878b-f85b72bbb5ff"), "claude --resume 3c2b69dc-f7ea-490e-878b-f85b72bbb5ff")
         XCTAssertEqual(AgentKind.codex.resumeCommand(sessionID: "019ec6eb-fa35-7a90-885d-23d8ae36f542"), "codex resume 019ec6eb-fa35-7a90-885d-23d8ae36f542")
+        for flag in ["--dangerously-skip-permissions", "--dangerously-bypass-approvals-and-sandbox", "-p12345678", ".hidden-id"] {
+            XCTAssertNil(AgentKind.claude.resumeCommand(sessionID: flag), "an id read from a file must never become an option")
+        }
         XCTAssertNil(AgentKind.claude.resumeCommand(sessionID: "x; rm -rf /"))
         XCTAssertNil(AgentKind.claude.resumeCommand(sessionID: "short"))
         XCTAssertNil(AgentKind.shell.resumeCommand(sessionID: "3c2b69dc-f7ea-490e-878b-f85b72bbb5ff"))

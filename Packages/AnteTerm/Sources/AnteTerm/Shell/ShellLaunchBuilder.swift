@@ -43,9 +43,12 @@ public struct ShellLaunchBuilder: Sendable {
 
     /// `arguments` are the user's `[shell] args` (default `-l`, a login shell); integration adds
     /// what each shell needs on top. `extraArguments` go last (a one-off command, say).
-    public func makeLaunch(shellPath: String, arguments userArguments: [String] = ["-l"], extraArguments: [String] = []) -> ShellLaunch {
+    /// `extraEnvironment` is per pane (its id, where accounts live); it wins over the base.
+    public func makeLaunch(shellPath: String, arguments userArguments: [String] = ["-l"], extraArguments: [String] = [],
+                           extraEnvironment: [String: String] = [:]) -> ShellLaunch {
         let kind = ShellKind(shellPath: shellPath)
         var env = baseEnvironment
+        env.merge(extraEnvironment) { $1 }
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
         env["TERM_PROGRAM"] = "Ante"
@@ -56,6 +59,8 @@ public struct ShellLaunchBuilder: Sendable {
         var arguments = userArguments
 
         if let integration {
+            // The integration puts this first on PATH once the person's rc files have run.
+            env["ANTE_LAUNCHER_DIR"] = integration.binDirectory.path
             switch kind {
             case .zsh:
                 if let userZdotdir = env["ZDOTDIR"], !userZdotdir.isEmpty {

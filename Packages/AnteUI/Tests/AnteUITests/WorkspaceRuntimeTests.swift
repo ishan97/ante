@@ -20,7 +20,7 @@ final class WorkspaceRuntimeTests: XCTestCase {
 
     /// A runtime whose shells are `/bin/sh -c 'sleep 30'` so tests never touch the user's zsh.
     private func makeRuntime() -> WorkspaceRuntime {
-        WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+        WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "sleep 30"], environment: ["PATH=/usr/bin:/bin"], kind: .other)
         })
     }
@@ -114,7 +114,7 @@ final class WorkspaceRuntimeTests: XCTestCase {
     }
 
     func testQuitMovesSessionsToHistoryAndLaunchStartsFresh() async {
-        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _ in
+        let runtime = WorkspaceRuntime(paths: paths, config: .default, launchFactory: { _, _ in
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "printf 'REMEMBER-ME\\n'; printf '\\033]7;file://localhost/private/tmp\\007'; sleep 30"],
                         environment: ["PATH=/usr/bin:/bin"], kind: .other)
         })

@@ -71,6 +71,9 @@ struct TerminalPaneView: View {
     var onCloseSearch: () -> Void = {}
     var showClose = false
     var onClose: () -> Void = {}
+    /// For the account chip; without them the pane shows none.
+    var runtime: WorkspaceRuntime?
+    var pane: PaneID?
     @State private var isHovering = false
 
     var body: some View {
@@ -99,6 +102,12 @@ struct TerminalPaneView: View {
                 .opacity(isHovering ? 1 : 0.35)
                 .padding(.top, AnteStyle.paneInset + 4)
                 .padding(.trailing, AnteStyle.paneInset + 4)
+            }
+            if let runtime, let pane, !showSearch {
+                AccountChip(runtime: runtime, pane: pane, controller: controller)
+                    .opacity(isHovering ? 1 : 0.6)
+                    .padding(.top, AnteStyle.paneInset + 4)
+                    .padding(.trailing, AnteStyle.paneInset + (showClose ? 28 : 4))
             }
             if case let .exited(code) = controller.state {
                 overlay {

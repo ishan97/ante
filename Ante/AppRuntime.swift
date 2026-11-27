@@ -48,14 +48,23 @@ final class AppRuntime {
         // the file: no parse per spawn, and a half-saved file never launches a shell with defaults.
         let live = LiveShellConfig(shell: configResult.config.shell)
         self.liveShell = live
-        self.workspace = WorkspaceRuntime(paths: paths, config: configResult.config) { directory in
+        // Every pane knows where accounts live and which names their folders share (the launcher
+        // reads both), and its own id, which the Claude hook tags its events with.
+        let accountsRoot = paths.accountsRoot.path
+        let shared = Dictionary(uniqueKeysWithValues: AccountAgent.allCases.map {
+            ("ANTE_SHARED_\($0.rawValue.uppercased())", AccountFolder.sharedNames(for: $0).joined(separator: " "))
+        })
+        self.workspace = WorkspaceRuntime(paths: paths, config: configResult.config) { directory, pane in
             let environment = ProcessInfo.processInfo.environment
             let shellConfig = live.shell
             let shellPath = shellConfig.program.isEmpty ? LoginShell.resolve(environment: environment) : shellConfig.program
+            var perPane = shared
+            perPane["ANTE_PANE_ID"] = pane.rawValue.uuidString
+            perPane["ANTE_ACCOUNTS_DIR"] = accountsRoot
             return ShellLaunchBuilder(baseEnvironment: environment,
                                       integration: shellConfig.integration ? capturedIntegration : nil,
                                       appVersion: version)
-                .makeLaunch(shellPath: shellPath, arguments: shellConfig.arguments)
+                .makeLaunch(shellPath: shellPath, arguments: shellConfig.arguments, extraEnvironment: perPane)
         }
         self.settings = SettingsModel(runtime: workspace)
         if case let .failed(_, error) = configResult {
@@ -83,11 +92,26 @@ final class AppRuntime {
         }
         configWatcher?.start()
 
+        // A hook installed by an older Ante lacks SessionStart and the pane tag: bring it up to date.
+        // Nothing is written when the hook is off.
+        do {
+            try ClaudeHookInstaller(eventFile: paths.claudeHookEventFile).upgradeIfInstalled()
+        } catch {
+            Self.logger.error("hook upgrade failed: \(error.localizedDescription, privacy: .public)")
+        }
         hookWatcher = HookEventWatcher(file: paths.claudeHookEventFile) { [weak self] events in
             self?.workspace.board.ingest(events)
         }
         hookWatcher?.start()
         workspace.board.start()
+        // Pick up the login the person already had as the first account, then refresh each
+        // account's email, plan and signed-in state. Defaults the launcher changes are watched.
+        workspace.accounts.startWatching()
+        let accounts = workspace.accounts
+        Task { @MainActor in
+            await accounts.importExistingLogins()
+            await accounts.refreshStatuses()
+        }
     }
 
     func installHotkey(window: NSWindow) {

@@ -58,7 +58,7 @@ extension WaitingNotifierTests {
         var config = AnteConfig.default
         config.agents.quietSeconds = 1
         config.agents.notify = notify
-        let runtime = WorkspaceRuntime(paths: paths, config: config, launchFactory: { _ in
+        let runtime = WorkspaceRuntime(paths: paths, config: config, launchFactory: { _, _ in
             // `exec -a` names the process "claude", which is what the foreground probe classifies on.
             ShellLaunch(executable: "/bin/sh", arguments: ["-c", "exec -a claude /bin/sleep 30"], environment: ["PATH=/usr/bin:/bin"], kind: .other)
         })

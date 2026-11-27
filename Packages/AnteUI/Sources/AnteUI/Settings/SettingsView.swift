@@ -242,9 +242,10 @@ public struct SettingsView: View {
     private var agents: some View {
         let _ = model.hookRevision
         return Form {
+            AccountsSettingsSection(runtime: model.workspace)
             Section("Waiting for you") {
                 Toggle("Claude Code hook (definite signal)", isOn: $model.claudeHookInstalled)
-                Text("Adds Notification, Stop, and UserPromptSubmit hooks to \(model.claudeSettingsPath) that append the event to Ante's own log under Application Support (emptied once it passes 256 KB; deleted when this is turned off). The settings file is backed up first; turning this off removes only Ante's entries.")
+                Text("Adds Notification, Stop, UserPromptSubmit and SessionStart hooks to \(model.claudeSettingsPath) that append the event, tagged with the pane it came from, to Ante's own log under Application Support (emptied once it passes 256 KB; deleted when this is turned off). The settings file is backed up first; turning this off removes only Ante's entries.")
                     .font(AnteStyle.captionFont).foregroundStyle(AnteStyle.textSecondary)
                 HStack {
                     Text("Quiet threshold")
