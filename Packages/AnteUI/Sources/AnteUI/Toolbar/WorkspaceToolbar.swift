@@ -57,6 +57,7 @@ struct WorkspaceToolbar: View {
             .animation(.easeOut(duration: 0.25), value: runtime.tokens.report.map { !$0.isEmpty } ?? false)
             // Scans only while there is a toolbar to show the result in.
             .task { await runtime.tokens.keepFresh() }
+            .task { await runtime.accounts.keepLimitsFresh() }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
                 runtime.headerControlsWidth = width + 12 + 8   // trailing padding plus a little slack
             }

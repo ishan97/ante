@@ -2,19 +2,19 @@
 import SwiftUI
 import AnteCore
 
-/// One account as a menu item: its name, then email and plan.
+/// One account as a menu item: its name, then email and plan; under it, what is left of its
+/// limits ("5h 56% → 3:30pm · Wk 79% → Thu 7:30pm") once known.
 struct AccountMenuItem: View {
     let account: AgentAccount
     var isCurrent = false
+    var limits: String?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            if isCurrent {
-                Label(title, systemImage: "checkmark")
-            } else {
-                Text(title)
-            }
+            if isCurrent { Image(systemName: "checkmark") }
+            Text(title)
+            if let limits { Text(limits) }
         }
     }
 
@@ -32,11 +32,12 @@ struct AccountMenuItems: View {
     let accounts: [AgentAccount]
     var lastUsedID: String?
     var currentID: String?
+    var limits: (AgentAccount) -> String? = { _ in nil }
     let pick: (AgentAccount) -> Void
 
     var body: some View {
         ForEach(ordered, id: \.id) { account in
-            AccountMenuItem(account: account, isCurrent: account.id == currentID) { pick(account) }
+            AccountMenuItem(account: account, isCurrent: account.id == currentID, limits: limits(account)) { pick(account) }
         }
     }
 
@@ -48,9 +49,10 @@ struct AccountMenuItems: View {
     }
 }
 
-/// The toolbar's "New agent session" menu: one entry per agent, or per account when the agent
-/// has a choice to make (no default set). Antigravity has one Google sign-in and no accounts in
-/// Ante, so it is a single entry.
+/// The toolbar's "New agent session" menu: every account of each agent, each with what is left
+/// of its limits, so one glance shows which account has room; the default is checked. An agent
+/// with one account or none is a single entry. Antigravity has one Google sign-in and no
+/// accounts in Ante, so it is a single entry too.
 struct NewAgentSessionMenu: View {
     @Bindable var runtime: WorkspaceRuntime
 
@@ -58,20 +60,25 @@ struct NewAgentSessionMenu: View {
         Menu {
             ForEach(AccountAgent.allCases, id: \.self) { agent in
                 let accounts = runtime.accounts.accounts(for: agent)
-                if runtime.accounts.needsAsking(agent) {
+                if accounts.count >= 2 {
                     Section("New \(agent.displayName) session") {
-                        AccountMenuItems(accounts: accounts) { start(agent, as: $0) }
+                        AccountMenuItems(accounts: accounts, currentID: runtime.accounts.defaultAccount(for: agent)?.id,
+                                         limits: runtime.accounts.limitsLine(for:)) { start(agent, as: $0) }
                     }
                 } else {
                     let account = runtime.accounts.automaticAccount(for: agent)
-                    Button(account.map { "New \(agent.displayName) session as \($0.name)" } ?? "New \(agent.displayName) session") {
-                        start(agent, as: account)
+                    Button { start(agent, as: account) } label: {
+                        Text(account.map { "New \(agent.displayName) session as \($0.name)" } ?? "New \(agent.displayName) session")
+                        if let line = account.flatMap(runtime.accounts.limitsLine(for:)) { Text(line) }
                     }
                 }
             }
             Divider()
             if let command = AgentKind.antigravity.pickerCommand {
-                Button("New \(AgentKind.antigravity.displayName) session") { start(command) }
+                Button { start(command) } label: {
+                    Text("New \(AgentKind.antigravity.displayName) session")
+                    if let line = runtime.accounts.antigravityLimitsLine { Text(line) }
+                }
             }
         } label: {
             Image(systemName: "sparkles.rectangle.stack")

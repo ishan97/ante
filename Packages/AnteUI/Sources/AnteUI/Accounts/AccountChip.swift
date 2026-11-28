@@ -54,7 +54,7 @@ struct AccountChip: View {
             Menu {
                 Section("Continue this conversation on…") {
                     ForEach(runtime.accounts.accounts(for: agent).filter { $0 != current }, id: \.id) { account in
-                        AccountMenuItem(account: account) { requestSwitch(to: account, agent: agent) }
+                        AccountMenuItem(account: account, limits: runtime.accounts.limitsLine(for: account)) { requestSwitch(to: account, agent: agent) }
                     }
                 }
             } label: {

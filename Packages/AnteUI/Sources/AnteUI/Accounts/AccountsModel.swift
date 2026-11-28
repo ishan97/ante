@@ -26,6 +26,12 @@ public final class AccountsModel {
     public let paths: AccountPaths
     private let cli: AgentCLIRunning
     private let store: AccountStore
+    private let limitsSource: UsageLimitsFetching
+    /// What is left of each account's limits, keyed like `signedIn`. A failed check keeps the
+    /// last numbers rather than blanking the line.
+    private var usageLimits: [String: UsageLimits] = [:]
+    /// Antigravity's limits (its one sign-in); nil until checked or when agy never signed in.
+    public private(set) var antigravityLimits: UsageLimits?
     public private(set) var accounts: [AgentAccount] = []
     private var defaults: [AccountAgent: String] = [:]
     /// Signed in or not as of the last status check, keyed by `"<agent>/<id>"` (both agents'
@@ -43,9 +49,10 @@ public final class AccountsModel {
 
     @ObservationIgnored private var watcher: DispatchSourceFileSystemObject?
 
-    public init(paths: AccountPaths, cli: AgentCLIRunning) {
+    public init(paths: AccountPaths, cli: AgentCLIRunning, limits: UsageLimitsFetching? = nil) {
         self.paths = paths
         self.cli = cli
+        self.limitsSource = limits ?? UsageLimitsClient(home: paths.home)
         self.store = AccountStore(paths: paths)
         reload()
     }
@@ -199,6 +206,51 @@ public final class AccountsModel {
             accounts[index].plan = status.plan ?? accounts[index].plan
         }
         save()
+    }
+
+    // MARK: - Limits
+
+    public func limits(for account: AgentAccount) -> UsageLimits? { usageLimits[Self.key(account)] }
+
+    /// "5h 56% → 3:30pm · Wk 79% → Thu 7:30pm", or that the token has expired; nil when unknown.
+    public func limitsLine(for account: AgentAccount) -> String? { UsageLimitsFormat.line(limits(for: account)) }
+
+    public var antigravityLimitsLine: String? {
+        antigravityLimits == .tokenExpired ? "Token expired — start agy to renew it" : UsageLimitsFormat.line(antigravityLimits)
+    }
+
+    /// Asks every account (and agy) at once what is left of its limits.
+    public func refreshLimits() async {
+        let source = limitsSource, paths = paths
+        let keyed = accounts.map { (Self.key($0), $0) }
+        async let antigravity = source.antigravityLimits()
+        let fetched = await withTaskGroup(of: (String, UsageLimits).self) { group in
+            for (key, account) in keyed {
+                group.addTask { (key, await source.limits(for: account, paths: paths)) }
+            }
+            var all: [String: UsageLimits] = [:]
+            for await (key, limits) in group { all[key] = limits }
+            return all
+        }
+        // Accounts removed meanwhile drop out with the rest of their state.
+        usageLimits = Dictionary(uniqueKeysWithValues: fetched.map { key, limits in (key, Self.merged(limits, over: usageLimits[key]) ?? limits) })
+        antigravityLimits = Self.merged(await antigravity, over: antigravityLimits)
+    }
+
+    /// A check that got no answer (offline, rate limited) keeps the last numbers rather than
+    /// blanking the line; an expired token always shows.
+    static func merged(_ new: UsageLimits?, over old: UsageLimits?) -> UsageLimits? {
+        if new == .unavailable, case .windows = old { return old }
+        return new
+    }
+
+    /// Refreshes the limits now and then every `interval` while the caller's task lives. The
+    /// endpoints rate-limit, and the agents poll them too, so not more often than this.
+    public func keepLimitsFresh(every interval: Duration = .seconds(180)) async {
+        while !Task.isCancelled {
+            await refreshLimits()
+            try? await Task.sleep(for: interval)
+        }
     }
 
     private func discard(_ pending: PendingAccount) {
